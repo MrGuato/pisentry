@@ -6,7 +6,7 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 
 ### Added
 
-- Release images are signed with cosign keyless signing by digest, and `SHA256SUMS` ships with a Sigstore bundle, `SHA256SUMS.sigstore.json`. Verification steps are in SECURITY.md
+- OpenSSF Scorecard workflow: weekly and on every push to main, results published to scorecard.dev and uploaded to code scanning. Badge in the README
 
 ### Changed
 
