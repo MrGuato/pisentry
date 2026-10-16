@@ -1,0 +1,54 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write   # create the GitHub release
+  packages: write   # push to ghcr.io
+
+env:
+  IMAGE: ghcr.io/mrguato/pisentry
+
+jobs:
+  binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: go test ./...
+      - run: make dist VERSION=${{ github.ref_name }}
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist/* \
+            --title "pisentry ${{ github.ref_name }}" --generate-notes
+
+  image:
+    needs: binaries   # no image unless tests pass
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64,linux/arm/v7,linux/amd64
+          build-args: VERSION=${{ github.ref_name }}
+          push: true
+          provenance: true
+          sbom: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.ref_name }}
+            ${{ env.IMAGE }}:latest

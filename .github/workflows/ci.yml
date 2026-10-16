@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - name: vet
+        run: go vet ./...
+      - name: test
+        run: go test -race ./...
+      - name: cross-compile
+        run: make dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: dist/
+          retention-days: 7
+
+  # Native ARM runner: proves the procfs parsing and detectors on real arm64.
+  test-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: go test ./...

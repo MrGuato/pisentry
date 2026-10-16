@@ -1,0 +1,42 @@
+{
+  "listen": "127.0.0.1:9817",
+  "learning_period": "10m",
+  "cooldown": "15m",
+  "logs": {
+    "source": "auto"
+  },
+  "ssh": {
+    "fail_threshold": 5,
+    "fail_window": "5m",
+    "allow_cidrs": []
+  },
+  "portscan": {
+    "threshold": 12,
+    "window": "60s",
+    "allow_cidrs": []
+  },
+  "listeners": {
+    "ignore_loopback": true,
+    "allow_ports": []
+  },
+  "proc": {
+    "cpu_threshold": 80
+  },
+  "suid": {
+    "interval": "6h"
+  },
+  "audit": {
+    "interval": "6h"
+  },
+  "output": {
+    "stdout": true,
+    "json_file": ""
+  },
+  "alerts": {
+    "type": "",
+    "url_env": "PISENTRY_WEBHOOK_URL",
+    "token_env": "PISENTRY_WEBHOOK_TOKEN",
+    "min_severity": "high",
+    "max_per_hour": 30
+  }
+}
