@@ -4,6 +4,10 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- CodeQL analysis for Go on every push to main, every pull request and weekly, with results in code scanning. Badge in the README
+
 ### Changed
 
 - Kubernetes manifests pin the image by release digest instead of by tag, and the staging overlay comment shows a digest override
