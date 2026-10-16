@@ -56,8 +56,34 @@ Every input is attacker-controlled: log lines, file names and contents, process 
 
 - Releases are built by GitHub Actions from version tags pushed by the maintainer, never from a laptop
 - Binaries ship with `SHA256SUMS`. Verify with `sha256sum --check --ignore-missing SHA256SUMS`
+- The image and `SHA256SUMS` are signed with cosign in keyless mode. The signing identity is the release workflow in this repository, attested by GitHub's OIDC issuer, and every signature is recorded in the Sigstore transparency log. There is no long-lived signing key to steal. `v0.1.0` predates signing; verify it by digest and provenance
 - Images ship with SLSA provenance and an SBOM. Inspect with `docker buildx imagetools inspect ghcr.io/mrguato/pisentry:<tag> --format '{{json .Provenance}}'`
 - Every GitHub Action is pinned to a commit SHA and every base image to a digest. Dependabot proposes the updates; a human merges them
 - CI runs `govulncheck` against the Go standard library on every push, so a toolchain vulnerability fails the build instead of shipping
 - Pin the image by digest in your cluster, not by tag
-- Signature verification with cosign is on the roadmap and is not available yet. Until it is, the digest and the provenance attestation are the integrity check
+
+### Verify
+
+You need cosign 3.0 or later. Signatures use the Sigstore bundle format, which cosign 2.x cannot read.
+
+Image:
+
+```sh
+cosign verify \
+  --certificate-identity-regexp '^https://github.com/MrGuato/pisentry/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/mrguato/pisentry:<tag>
+```
+
+Binaries. From the release page, download `SHA256SUMS`, `SHA256SUMS.sigstore.json` and the binary for your board:
+
+```sh
+cosign verify-blob \
+  --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/MrGuato/pisentry/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+A pass means the file was produced by this repository's release workflow on a `v*` tag and has not changed since. The identity check is the important part: without it, any GitHub workflow anywhere could have signed it.
