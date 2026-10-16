@@ -317,7 +317,7 @@ The detection logic is public on purpose. Thresholds are per-deployment configur
 - `/dev/shm` and `memfd` execution as its own signal
 - Optional inotify for instant FIM on supported kernels
 - PrometheusRule alerts shipped with the manifests
-- Signed releases with cosign, verifiable in-cluster
+- In-cluster admission policy that verifies the cosign signature before a pod starts. Releases are signed today, see [SECURITY.md](SECURITY.md)
 
 Linux first: arm64, armv7 and amd64 today. Other platforms are being explored, nothing is promised.
 

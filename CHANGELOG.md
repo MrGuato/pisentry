@@ -4,6 +4,10 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- Release images are signed with cosign keyless signing by digest, and `SHA256SUMS` ships with a Sigstore bundle, `SHA256SUMS.sigstore.json`. Verification steps are in SECURITY.md
+
 ### Changed
 
 - Kubernetes manifests pin the image by release digest instead of by tag, and the staging overlay comment shows a digest override
