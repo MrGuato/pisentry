@@ -2,6 +2,12 @@
 
 All notable changes to pisentry are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Kubernetes manifests pin the image by release digest instead of by tag, and the staging overlay comment shows a digest override
+
 ## [0.1.0] - 2026-10-15
 
 First release.
@@ -18,4 +24,5 @@ First release.
 - Flux-ready Kubernetes manifests: DaemonSet, NetworkPolicy, PodMonitor, Grafana dashboard
 - Safe, self-cleaning attack simulation script
 
+[Unreleased]: https://github.com/MrGuato/pisentry/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/MrGuato/pisentry/releases/tag/v0.1.0
