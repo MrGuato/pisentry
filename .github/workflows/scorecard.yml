@@ -1,0 +1,31 @@
+name: scorecard
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1" # Mondays, 06:17 UTC
+
+# read-all rather than the contents: read used elsewhere: Scorecard reads
+# branch rules, checks and PR history through the token, and publishing
+# results requires no workflow-level write permission of any kind.
+permissions: read-all
+
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # upload SARIF to code scanning
+      id-token: write # publish_results signs the upload with the job's OIDC token
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true # feeds the badge and api.scorecard.dev
+      - uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: results.sarif

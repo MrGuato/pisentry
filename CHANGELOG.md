@@ -4,6 +4,10 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- OpenSSF Scorecard workflow: weekly and on every push to main, results published to scorecard.dev and uploaded to code scanning. Badge in the README
+
 ### Changed
 
 - Kubernetes manifests pin the image by release digest instead of by tag, and the staging overlay comment shows a digest override

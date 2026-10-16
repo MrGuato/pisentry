@@ -16,6 +16,7 @@
 ![Dependencies](https://img.shields.io/badge/Dependencies-none%2C%20stdlib%20only-blue?style=flat-square)
 [![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fmrguato%2Fpisentry-blue?style=flat-square&logo=docker)](https://github.com/MrGuato/pisentry/pkgs/container/pisentry)
 ![Supply chain](https://img.shields.io/badge/Supply%20chain-provenance%20%2B%20SBOM-informational?style=flat-square)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/MrGuato/pisentry?label=OpenSSF%20Scorecard&style=flat-square)](https://scorecard.dev/viewer/?uri=github.com/MrGuato/pisentry)
 ![GitHub last commit](https://img.shields.io/github/last-commit/MrGuato/pisentry?style=flat-square)
 ![GitHub repo size](https://img.shields.io/github/repo-size/MrGuato/pisentry?style=flat-square)
 ![Visitors](https://visitor-badge.laobi.icu/badge?page_id=mrguato.pisentry)
