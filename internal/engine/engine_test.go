@@ -3,7 +3,7 @@ package engine
 import "testing"
 
 func TestTruncateNeutralizesEscapes(t *testing.T) {
-	in := "evil\x1b[2J\x1b]0;pwned\x07‮exe.txt\x9b31m\xff"
+	in := "evil\x1b[2J\x1b]0;pwned\x07\u202eexe.txt\x9b31m\xff"
 	out := Truncate(in, 100)
 	for _, r := range out {
 		if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) || r == 0x202e {
