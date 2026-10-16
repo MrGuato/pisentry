@@ -8,6 +8,7 @@
 
 [![Made With Love](https://img.shields.io/badge/Made%20with%20%E2%9D%A4%EF%B8%8F-by%20Jonathan-red)](https://github.com/MrGuato)
 [![ci](https://github.com/MrGuato/pisentry/actions/workflows/ci.yml/badge.svg)](https://github.com/MrGuato/pisentry/actions/workflows/ci.yml)
+[![codeql](https://github.com/MrGuato/pisentry/actions/workflows/codeql.yml/badge.svg)](https://github.com/MrGuato/pisentry/actions/workflows/codeql.yml)
 [![release](https://github.com/MrGuato/pisentry/actions/workflows/release.yml/badge.svg)](https://github.com/MrGuato/pisentry/actions/workflows/release.yml)
 ![GitHub release](https://img.shields.io/github/v/release/MrGuato/pisentry?style=flat-square)
 ![Go version](https://img.shields.io/github/go-mod/go-version/MrGuato/pisentry?style=flat-square&logo=go)
@@ -16,6 +17,7 @@
 ![Dependencies](https://img.shields.io/badge/Dependencies-none%2C%20stdlib%20only-blue?style=flat-square)
 [![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fmrguato%2Fpisentry-blue?style=flat-square&logo=docker)](https://github.com/MrGuato/pisentry/pkgs/container/pisentry)
 ![Supply chain](https://img.shields.io/badge/Supply%20chain-provenance%20%2B%20SBOM-informational?style=flat-square)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/MrGuato/pisentry?label=OpenSSF%20Scorecard&style=flat-square)](https://scorecard.dev/viewer/?uri=github.com/MrGuato/pisentry)
 ![GitHub last commit](https://img.shields.io/github/last-commit/MrGuato/pisentry?style=flat-square)
 ![GitHub repo size](https://img.shields.io/github/repo-size/MrGuato/pisentry?style=flat-square)
 ![Visitors](https://visitor-badge.laobi.icu/badge?page_id=mrguato.pisentry)
@@ -327,7 +329,7 @@ The detection logic is public on purpose. Thresholds are per-deployment configur
 - `/dev/shm` and `memfd` execution as its own signal
 - Optional inotify for instant FIM on supported kernels
 - PrometheusRule alerts shipped with the manifests
-- Signed releases with cosign, verifiable in-cluster
+- In-cluster admission policy that verifies the cosign signature before a pod starts. Releases are signed today, see [SECURITY.md](SECURITY.md)
 
 Linux first: arm64, armv7 and amd64 today. Other platforms are being explored, nothing is promised.
 
