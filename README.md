@@ -181,6 +181,8 @@ kubectl -n pisentry logs -l app.kubernetes.io/name=pisentry -f | jq 'select(.sev
 
 The Grafana dashboard ("pisentry - Top 10 attacks") is loaded by the kube-prometheus-stack sidecar. It has severity stats, the ranked Top 10 bar gauge, events over time, failing posture checks, SSH failure rate per node, and detector freshness.
 
+![The pisentry Grafana dashboard rendered from the bundled container attack simulation, host pi-sim](docs/assets/grafana-top10.png)
+
 ### What the pod is allowed to do, and why
 
 | Grant | Why |
@@ -258,6 +260,14 @@ sudo pisentry report -since 10m
 ```
 
 This fires PS01, 02, 04, 05, 06, 07, 08 and 09 with harmless stand-ins: fake log lines from documentation IP ranges, a copy of `sleep` named xmrig, a reverse shell to the host's own IP, and a comment-only cron file. Nothing leaves the machine, and everything is cleaned up when the script exits.
+
+No root, and nothing touched on your own host? The same eight categories run inside a container:
+
+```bash
+make sim
+```
+
+This builds the binary in the pinned Go image, runs the agent in a `python:3-slim` container with file-mode logs and short detector intervals, fires the same stand-ins, and writes `events.jsonl`, `report.json`, `metrics.txt` and `top10.json` to an output directory. It exits non-zero unless all eight categories fired. See [scripts/sim-container/](scripts/sim-container/).
 
 ---
 

@@ -4,6 +4,11 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- Container-based attack simulation (`make sim`, `scripts/sim-container/`): runs the agent in a `python:3-slim` container with file-mode logs and short detector intervals, fires harmless stand-ins for the eight simulatable categories, writes `events.jsonl`, `report.json`, `metrics.txt` and `top10.json`, and exits non-zero unless all eight fired. Proves detectors without root on a real host
+- `docs/assets/grafana-top10.png`: the bundled Grafana dashboard rendered from the container simulation
+
 ### Changed
 
 - Kubernetes manifests pin the image by release digest instead of by tag, and the staging overlay comment shows a digest override
