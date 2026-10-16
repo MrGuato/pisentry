@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="pisentry">
+  <title>pisentry</title>
+  <g>
+    <path d="M32 3.5 L55.5 11.5 V30.5 C55.5 45.2 45.6 55.4 32 60.5 C18.4 55.4 8.5 45.2 8.5 30.5 V11.5 Z" fill="none" stroke="#34E39A" stroke-width="3.2" stroke-linejoin="round"/>
+    <path d="M32 31 L32.00 13.50 A17.5 17.5 0 0 1 47.45 22.78 Z" fill="#34E39A" fill-opacity="0.28"/>
+    <circle cx="32" cy="31" r="9" fill="none" stroke="#34E39A" stroke-width="1.6" stroke-opacity="0.55"/>
+    <circle cx="32" cy="31" r="17.5" fill="none" stroke="#34E39A" stroke-width="1.6" stroke-opacity="0.35"/>
+    <line x1="32" y1="31" x2="47.45" y2="22.78" stroke="#34E39A" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="32" cy="31" r="3" fill="#34E39A"/>
+    <circle cx="38.09" cy="21.25" r="3.6" fill="#FF4D5E" stroke="#0B1015" stroke-width="1.4"/>
+  </g>
+</svg>

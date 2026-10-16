@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/MrGuato/pisentry/security/advisories/new
+    about: Private report. Please never file a vulnerability as a public issue.

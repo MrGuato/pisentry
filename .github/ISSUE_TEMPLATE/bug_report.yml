@@ -1,0 +1,43 @@
+name: Bug report
+description: The agent crashed, hung, errored or did something wrong
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `pisentry version`
+      placeholder: v0.1.0 linux/arm64
+    validations:
+      required: true
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: How it runs
+      options:
+        - systemd service
+        - Kubernetes DaemonSet
+        - run by hand
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Host
+      description: Distro, kernel, board
+      placeholder: Raspberry Pi OS 12 (bookworm), 6.12 kernel, Pi 4 4GB
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got. Paste the relevant agent log lines. Remove hostnames and IPs you do not want public.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Config
+      description: Your config.json with anything sensitive removed. Say if it is the default.
+      render: json

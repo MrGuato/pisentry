@@ -1,0 +1,27 @@
+name: Feature request
+description: A new detector, output, platform or deployment target
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What attack or gap does this cover
+      description: Start from the attacker's side. What would they do, and what signal does it leave on the host?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Where the signal comes from (log, /proc, file), what the rule is, and which Top 10 category it belongs to.
+    validations:
+      required: true
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Fit
+      options:
+        - label: It can be done with the Go standard library only
+          required: true
+        - label: It fits in the footprint of a 2 GB Pi
+          required: true

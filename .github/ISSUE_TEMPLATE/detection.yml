@@ -1,0 +1,40 @@
+name: False positive or detection gap
+description: It alerted on something benign, or it missed something it should have caught
+labels: [detection]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - False positive (alerted, should not have)
+        - Detection gap (did not alert, should have)
+    validations:
+      required: true
+  - type: input
+    id: category
+    attributes:
+      label: Category
+      placeholder: PS06 Cryptominer
+    validations:
+      required: true
+  - type: textarea
+    id: event
+    attributes:
+      label: The event, or the thing that should have been one
+      description: For a false positive, paste the JSON event. For a gap, describe what ran on the host and how. Documentation IPs (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24) are fine as stand-ins.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it is wrong
+      description: What the process, file or login really was, and how a detector could tell the difference.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version and host
+      placeholder: v0.1.0, Ubuntu 24.04 arm64, DaemonSet
