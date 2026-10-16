@@ -6,7 +6,7 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 
 ### Added
 
-- OpenSSF Scorecard workflow: weekly and on every push to main, results published to scorecard.dev and uploaded to code scanning. Badge in the README
+- CodeQL analysis for Go on every push to main, every pull request and weekly, with results in code scanning. Badge in the README
 
 ### Changed
 

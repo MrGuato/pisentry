@@ -8,6 +8,7 @@
 
 [![Made With Love](https://img.shields.io/badge/Made%20with%20%E2%9D%A4%EF%B8%8F-by%20Jonathan-red)](https://github.com/MrGuato)
 [![ci](https://github.com/MrGuato/pisentry/actions/workflows/ci.yml/badge.svg)](https://github.com/MrGuato/pisentry/actions/workflows/ci.yml)
+[![codeql](https://github.com/MrGuato/pisentry/actions/workflows/codeql.yml/badge.svg)](https://github.com/MrGuato/pisentry/actions/workflows/codeql.yml)
 [![release](https://github.com/MrGuato/pisentry/actions/workflows/release.yml/badge.svg)](https://github.com/MrGuato/pisentry/actions/workflows/release.yml)
 ![GitHub release](https://img.shields.io/github/v/release/MrGuato/pisentry?style=flat-square)
 ![Go version](https://img.shields.io/github/go-mod/go-version/MrGuato/pisentry?style=flat-square&logo=go)
