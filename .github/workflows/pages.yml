@@ -1,0 +1,83 @@
+name: pages
+
+# Builds the website from site/ and publishes it to GitHub Pages. The roadmap
+# and the live numbers are rendered from the GitHub API at build time, so the
+# site also rebuilds when a milestone or a milestoned issue changes, and the
+# published pages make no requests of their own.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "scripts/build-site.py"
+      - "docs/assets/**"
+      - "CHANGELOG.md"
+      - "go.mod"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "site/**"
+      - "scripts/build-site.py"
+      - "docs/assets/**"
+      - "CHANGELOG.md"
+      - "go.mod"
+      - ".github/workflows/pages.yml"
+  release:
+    types: [published]
+  milestone:
+    types: [created, edited, opened, closed, deleted]
+  issues:
+    types: [edited, closed, reopened, labeled, unlabeled, milestoned, demilestoned, deleted]
+  schedule:
+    - cron: "23 6 * * *" # stars and the Scorecard score change without an event
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time. A burst of issue edits queues one more build, not
+# twenty. Pull requests build in their own group and never deploy.
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Anyone can open an issue on a public repo. Only maintainers can set a
+    # milestone, and only milestoned issues reach the roadmap.
+    if: >-
+      github.event_name != 'issues' ||
+      github.event.issue.milestone != null ||
+      github.event.action == 'demilestoned'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read # milestones and roadmap issues
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      # Standard library Python. Every API string is HTML-escaped before it
+      # reaches a page; the build fails on any GitHub API error.
+      - name: Build site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/build-site.py --out _site --strict
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write # publish the artifact
+      id-token: write # Pages checks the deployment against the job's OIDC token
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
