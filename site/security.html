@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- include:head -->
+<title>Security: pisentry</title>
+<meta name="description" content="The pisentry threat model, what the agent is allowed to do on a host, how releases are built and signed, how to verify them, and how to report a vulnerability.">
+<link rel="canonical" href="https://mrguato.github.io/pisentry/security.html">
+<meta property="og:title" content="pisentry security">
+<meta property="og:description" content="Threat model, host grants, signed releases and private vulnerability reporting.">
+<meta property="og:url" content="https://mrguato.github.io/pisentry/security.html">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<!-- include:header -->
+
+<main id="main">
+  <section class="page-head">
+    <div class="wrap">
+      <p class="eyebrow"><span class="sq"></span>Security</p>
+      <h1>Root on your host. So we show our work.</h1>
+      <p class="lead">pisentry runs as root under systemd, or with hostPID and three capabilities in Kubernetes. A bug in pisentry is a bug in that host. This page says what it can touch, how it is built, and how to check a release yourself.</p>
+    </div>
+  </section>
+
+  <div class="wrap with-toc">
+    <nav class="toc" aria-label="On this page">
+      <a href="#model">Threat model</a>
+      <a href="#grants">What it can do</a>
+      <a href="#supply">Supply chain</a>
+      <a href="#verify">Verify a release</a>
+      <a href="#limits">Known limits</a>
+      <a href="#report">Report a bug</a>
+    </nav>
+
+    <div class="prose">
+      <h2 id="model">Threat model</h2>
+      <p>Every input is attacker-controlled: log lines, file names and contents, process names and command lines from /proc. All of them pass through one sanitizer before they reach JSON, a webhook or a terminal. It strips control characters, terminal escapes, bidi overrides and invalid UTF-8, and it caps length.</p>
+      <ul>
+        <li>The agent opens no outbound connection except the webhook you set. The URL and token come from the environment, never the config file.</li>
+        <li>It listens on <code>127.0.0.1:9817</code> by default. In Kubernetes it listens on the pod IP behind a NetworkPolicy that admits only the monitoring namespace.</li>
+        <li>State lives in a root-only directory. Writes are atomic and fsynced.</li>
+        <li><code>go.mod</code> has no require block. The dependency surface is this repository and the Go toolchain.</li>
+      </ul>
+      <div class="callout">
+        <p><b>Root wins.</b> An attacker who gets root can stop the agent or edit its state. The defense is to ship events off the box, to Prometheus or a webhook, and to alert on <code>absent(pisentry_up)</code> and on stale detectors.</p>
+      </div>
+
+      <h2 id="grants">What it can do on a host</h2>
+      <h3>As a systemd service</h3>
+      <p>The unit runs as root because it reads /etc/shadow, other users' /proc entries and the journal. Then it takes almost everything away.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Setting</th><th scope="col">Effect</th></tr></thead>
+          <tbody>
+            <tr><td><code>CapabilityBoundingSet</code></td><td>Only DAC_READ_SEARCH and SYS_PTRACE</td></tr>
+            <tr><td><code>ProtectSystem=strict</code>, <code>ProtectHome=read-only</code></td><td>The OS and home directories are read-only to the agent</td></tr>
+            <tr><td><code>NoNewPrivileges</code>, <code>RestrictSUIDSGID</code></td><td>No way to gain privileges through exec</td></tr>
+            <tr><td><code>SystemCallFilter=@system-service</code></td><td>Minus debug, mount, swap, reboot, raw I/O and module calls</td></tr>
+            <tr><td><code>RestrictAddressFamilies</code></td><td>IPv4, IPv6 and Unix sockets only</td></tr>
+            <tr><td><code>MemoryDenyWriteExecute</code></td><td>No writable and executable memory</td></tr>
+            <tr><td><code>MemoryMax=96M</code>, <code>CPUQuota=25%</code>, <code>Nice=10</code></td><td>Stays out of the way on a 2 GB Pi</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted">PrivateTmp and PrivateDevices are off on purpose. The agent must see the real /tmp and /dev/shm, which is where droppers and miners live.</p>
+
+      <h3>As a Kubernetes DaemonSet</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Grant</th><th scope="col">Why</th></tr></thead>
+          <tbody>
+            <tr><td><code>hostPID: true</code></td><td>See every host and pod process for miner and reverse shell detection</td></tr>
+            <tr><td>Host <code>/</code> at <code>/host</code>, read-only, recursive where supported</td><td>File integrity, posture audit, SUID walk, host journalctl</td></tr>
+            <tr><td><code>CAP_DAC_READ_SEARCH</code></td><td>Read /etc/shadow, journals, home directories</td></tr>
+            <tr><td><code>CAP_SYS_PTRACE</code></td><td>Read /proc/&lt;pid&gt;/fd and /exe of other users' processes</td></tr>
+            <tr><td><code>CAP_SYS_CHROOT</code></td><td>Run the host's own journalctl so the journal format always matches</td></tr>
+            <tr><td>AppArmor unconfined, SELinux <code>spc_t</code></td><td>Default container profiles block ptrace reads and host file reads</td></tr>
+            <tr><td><code>/var/lib/pisentry</code> hostPath</td><td>Per-node baselines survive pod restarts</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>It is not a privileged pod. It has no service account token and a read-only root filesystem. The image is pinned by digest, because a tag can move and a digest cannot.</p>
+
+      <h2 id="supply">Supply chain</h2>
+      <ul>
+        <li>Releases are built by GitHub Actions from version tags, never from a laptop.</li>
+        <li>main requires signed commits, a pull request and passing checks on x86 and native arm64. Force pushes and deletion are blocked.</li>
+        <li>The image and <code>SHA256SUMS</code> are signed with cosign in keyless mode. The signing identity is the release workflow, attested by GitHub's OIDC issuer, and every signature lands in the Sigstore transparency log. There is no long-lived key to steal. v0.1.0 predates signing; verify it by digest and provenance.</li>
+        <li>Images ship SLSA provenance and an SBOM.</li>
+        <li>Every GitHub Action is pinned to a commit SHA and every base image to a digest. Dependabot proposes updates and a human merges them.</li>
+        <li>CI runs govulncheck, CodeQL, staticcheck, go vet and the race detector. A toolchain vulnerability fails the build.</li>
+        <li><a href="https://scorecard.dev/viewer/?uri=github.com/MrGuato/pisentry">OpenSSF Scorecard</a> grades the repository in public. Current score: <b data-build="scorecard">6.4</b>.</li>
+      </ul>
+
+      <h2 id="verify">Verify a release</h2>
+      <p>You need cosign 3.0 or later. Signatures use the Sigstore bundle format, which cosign 2.x cannot read.</p>
+      <h3>Binaries</h3>
+      <p>From the release page, download <code>SHA256SUMS</code>, <code>SHA256SUMS.sigstore.json</code> and the binary for your board.</p>
+      <div class="code"><button class="copy" type="button" data-copy>Copy</button><pre>cosign verify-blob \
+  --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/MrGuato/pisentry/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS</pre></div>
+      <h3>Image</h3>
+      <div class="code"><button class="copy" type="button" data-copy>Copy</button><pre>cosign verify \
+  --certificate-identity-regexp '^https://github.com/MrGuato/pisentry/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/mrguato/pisentry:&lt;tag&gt;</pre></div>
+      <h3>Provenance</h3>
+      <div class="code"><button class="copy" type="button" data-copy>Copy</button><pre>docker buildx imagetools inspect ghcr.io/mrguato/pisentry:&lt;tag&gt; --format '{{json .Provenance}}'</pre></div>
+      <p>A pass means the file came from this repository's release workflow on a <code>v*</code> tag and has not changed since. The identity check is the part that matters. Without it, any GitHub workflow anywhere could have signed it.</p>
+
+      <h2 id="limits">Known limits</h2>
+      <p>These are documented behavior, not bugs. They are here so you can decide if pisentry fits.</p>
+      <ul>
+        <li><b>Polling, not syscalls.</b> A process that lives less than one poll, 15 seconds, can be missed.</li>
+        <li><b>Port scans need firewall logging.</b> pisentry reads kernel drop logs. It does not capture packets.</li>
+        <li><b>A compromised host learns a bad baseline.</b> Install on a clean host, or review the first baselines by hand.</li>
+        <li><b>Log forgery in file mode.</b> Any local user can write sshd-tagged lines with logger. With journald, <code>ssh_require_root</code> drops them.</li>
+        <li><b>FIM hashes on an interval.</b> A file changed and restored inside 60 seconds is not seen.</li>
+        <li><b>High UDP ports.</b> Unconnected UDP sockets on 32768 and up are skipped to avoid DNS client noise.</li>
+      </ul>
+
+      <h2 id="report">Report a vulnerability</h2>
+      <p>Use GitHub's private vulnerability reporting. Do not open a public issue, pull request or discussion for a suspected vulnerability.</p>
+      <p><a class="btn btn-primary" href="https://github.com/MrGuato/pisentry/security/advisories/new">Report in private</a></p>
+      <ul>
+        <li>Acknowledgement within 7 days.</li>
+        <li>A fix or a mitigation plan for high and critical findings within 30 days of confirmation.</li>
+        <li>Credit in the release notes and the advisory, unless you ask to stay anonymous.</li>
+      </ul>
+      <p class="muted">In scope: crafted input that crashes, hangs or exhausts the agent; anything that makes it execute something, write outside its directories or read what it should not; suppressing or forging events beyond the known limits; escalation through the unit, the pod grants, the HTTP endpoint or the webhook sender; and release integrity. The full policy is in <a href="https://github.com/MrGuato/pisentry/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+    </div>
+  </div>
+</main>
+
+<!-- include:footer -->
+</body>
+</html>

@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- include:head -->
+<title>pisentry: host security for Raspberry Pi</title>
+<meta name="description" content="pisentry is a host security agent for Raspberry Pi and ARM Linux. One static binary watches SSH, processes, files and listeners, ranks the ten attacks that matter, and needs no eBPF.">
+<link rel="canonical" href="https://mrguato.github.io/pisentry/">
+<meta property="og:title" content="pisentry: host security for Raspberry Pi">
+<meta property="og:description" content="One static binary. Ten attacks, ranked. No eBPF, no third-party code.">
+<meta property="og:url" content="https://mrguato.github.io/pisentry/">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- include:header -->
+
+<main id="main">
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="sq"></span>Host security for Raspberry Pi</p>
+      <h1>Know what is hitting <span class="hl">your Pi.</span></h1>
+      <p class="lead">pisentry watches SSH, processes, files and listeners on Raspberry Pi and ARM Linux. It ranks the ten attacks that matter and tells you where to look first.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#install">Audit your Pi</a>
+        <a class="btn" href="https://github.com/MrGuato/pisentry/releases/latest">Download <span class="count" data-build="release_tag">v0.1.0</span></a>
+      </div>
+      <ul class="hero-meta">
+        <li>One static binary</li>
+        <li>No eBPF or kernel modules</li>
+        <li>Standard library only</li>
+        <li>MIT license</li>
+      </ul>
+    </div>
+
+    <div class="hero-art">
+      <svg class="board" viewBox="0 0 600 400" role="img" aria-labelledby="board-title">
+        <title id="board-title">A single board computer with pisentry running on its processor</title>
+        <defs>
+          <pattern id="gpio" x="80" y="56" width="14" height="14" patternUnits="userSpaceOnUse">
+            <rect class="b-pin" x="4" y="4" width="6" height="6"/>
+          </pattern>
+        </defs>
+        <g transform="translate(20 20)">
+          <rect class="b-pcb" x="40" y="50" width="470" height="310" rx="10"/>
+          <circle class="b-hole" cx="59" cy="69" r="7"/>
+          <circle class="b-hole" cx="380" cy="69" r="7"/>
+          <circle class="b-hole" cx="59" cy="341" r="7"/>
+          <circle class="b-hole" cx="380" cy="341" r="7"/>
+
+          <path class="b-trace" d="M195 150V112H150V86M215 150V106H232V86M235 150V100H290V86M255 150V96H340V86"/>
+          <path class="b-trace" d="M270 180H300M270 195H300M270 210H300M270 225H300"/>
+          <path class="b-trace" d="M370 180H420V208H445M370 200H410V118H445"/>
+          <path class="b-trace" d="M440 300H262V250"/>
+          <path class="b-trace" d="M200 250V300H157V345M215 250V310H207V345M180 250V290H94V345"/>
+          <path class="b-trace" d="M170 200H144V168"/>
+
+          <rect class="b-header" x="80" y="56" width="282" height="30"/>
+          <rect x="80" y="56" width="280" height="28" fill="url(#gpio)"/>
+          <text class="b-silk" x="80" y="104">GPIO</text>
+
+          <rect class="b-part" x="80" y="120" width="64" height="48"/>
+          <rect class="b-port-in" x="86" y="126" width="52" height="36"/>
+          <text class="b-silk" x="94" y="148">WLAN</text>
+
+          <rect class="b-part" x="48" y="190" width="12" height="60"/>
+
+          <rect class="b-chip" x="170" y="150" width="100" height="100"/>
+          <svg x="180" y="160" width="80" height="80" viewBox="0 0 64 64" aria-hidden="true">
+            <path class="b-mark-line" d="M32 3.5 L55.5 11.5 V30.5 C55.5 45.2 45.6 55.4 32 60.5 C18.4 55.4 8.5 45.2 8.5 30.5 V11.5 Z"/>
+            <circle class="b-mark-ring r1" cx="32" cy="31" r="9"/>
+            <circle class="b-mark-ring r2" cx="32" cy="31" r="17.5"/>
+            <g class="b-sweep">
+              <path class="b-mark-sweep" d="M32 31 L32 13.5 A17.5 17.5 0 0 1 47.45 22.78 Z"/>
+              <line class="b-mark-needle" x1="32" y1="31" x2="47.45" y2="22.78"/>
+            </g>
+            <circle class="b-mark-fill" cx="32" cy="31" r="3"/>
+            <circle class="b-mark-hit" cx="38.09" cy="21.25" r="3.6"/>
+          </svg>
+
+          <rect class="b-chip" x="300" y="160" width="70" height="80"/>
+          <text class="b-chip-text" x="314" y="204">RAM</text>
+
+          <text class="b-silk-strong" x="300" y="266">PISENTRY NODE</text>
+          <text class="b-silk" x="300" y="280">ARM64 LINUX</text>
+
+          <rect class="b-port" x="445" y="82" width="85" height="72"/>
+          <rect class="b-port-in" x="458" y="92" width="58" height="20"/>
+          <rect class="b-port-in" x="458" y="122" width="58" height="20"/>
+          <rect class="b-port" x="445" y="172" width="85" height="72"/>
+          <rect class="b-port-in" x="458" y="182" width="58" height="20"/>
+          <rect class="b-port-in" x="458" y="212" width="58" height="20"/>
+          <rect class="b-port" x="440" y="262" width="90" height="78"/>
+          <rect class="b-port-in" x="455" y="275" width="60" height="50"/>
+
+          <rect class="b-port" x="75" y="345" width="38" height="20"/>
+          <rect class="b-port" x="140" y="345" width="34" height="18"/>
+          <rect class="b-port" x="190" y="345" width="34" height="18"/>
+          <rect class="b-part" x="250" y="343" width="26" height="24"/>
+
+          <rect class="b-led-pwr" x="52" y="268" width="9" height="5"/>
+          <rect class="b-led-act" x="52" y="280" width="9" height="5"/>
+          <text class="b-silk" x="66" y="274">PWR</text>
+          <text class="b-silk" x="66" y="286">ACT</text>
+
+          <rect class="b-packet" x="426" y="297" width="7" height="7"/>
+          <rect class="b-packet p2 b-packet-ok" x="426" y="297" width="7" height="7"/>
+        </g>
+      </svg>
+
+      <div class="toast" id="toast" aria-hidden="true">
+        <div class="toast-top"><span class="sev sev-critical" data-t="sev">critical</span><span class="cat-id" data-t="id">PS08</span><span data-t="name">Reverse shell</span><span class="when" data-t="when">now</span></div>
+        <div class="toast-msg" data-t="msg">Reverse shell: bash (pid 5358) has fd 0 connected to 192.0.2.2:4445</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="shot" aria-label="Example report">
+  <div class="wrap">
+    <div class="term">
+      <div class="term-bar"><span class="dots"><i></i><i></i><i></i></span><span class="title">pisentry report</span></div>
+<pre><span class="p">$</span> sudo pisentry report
+pisentry Top 10  |  host kubepi  |  last 24h  |  2026-10-15 14:02 EDT
+
+#   ID    CATEGORY                 EVENTS  WORST     LAST SEEN  ALL TIME  MITRE
+1   PS06  Cryptominer              2       critical  35s ago    2         T1496
+2   PS07  Unexpected listener      2       critical  38s ago    2         T1571
+3   PS02  Suspicious login         1       critical  40s ago    1         T1078
+4   PS08  Reverse shell            1       critical  39s ago    1         T1059.004
+5   PS01  SSH brute force          1       high      40s ago    1         T1110
+6   PS04  Privilege escalation     1       high      40s ago    1         T1548.001,T1548.003
+7   PS09  Port scan                1       high      40s ago    1         T1046
+8   PS03  Insecure posture         1       medium    1m ago     1         T1078.001,T1021.004
+9   PS05  Persistence              0       clean     -          0         T1053.003,T1543.002,...
+10  PS10  Critical file tampering  0       clean     -          0         T1574.006,T1556.003,...</pre>
+    </div>
+    <p class="term-caption">Real output from a run against the bundled attack simulation. Every category shows, so the report reads as a status board on a quiet day too.</p>
+
+    <div class="stats">
+      <div class="stat"><div class="num" data-build="modules">0</div><div class="label">third-party Go modules</div></div>
+      <div class="stat"><div class="num"><span data-build="arm64_mb">7.5</span><small>MB</small></div><div class="label">static arm64 binary</div></div>
+      <div class="stat"><div class="num">16<small>MiB</small></div><div class="label">memory on a 2 GB Pi 4 in k3s</div></div>
+      <div class="stat"><div class="num">10</div><div class="label">attack categories, mapped to MITRE ATT&amp;CK</div></div>
+      <div class="stat"><div class="num" data-build="scorecard">6.4</div><div class="label">OpenSSF Scorecard, checked in public</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="why">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Why pisentry</p>
+      <h2>Small boards get attacked too.</h2>
+      <p class="lead">A Pi with SSH open sees brute force within hours. Most security agents were built for big servers. This one was built on a Pi, for the Pi.</p>
+    </div>
+    <div class="grid grid-3">
+      <div class="card card-big">
+        <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M5 5h14v14H5zM9 9h6v6H9zM9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg></div>
+        <h3>No eBPF needed</h3>
+        <p>Most modern eBPF agents need kernel BTF. Stock Raspberry Pi OS kernels do not ship it. pisentry reads logs, /proc and files, so it runs on the kernel you already have.</p>
+      </div>
+      <div class="card card-big">
+        <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M8 6l-6 6 6 6M16 6l6 6-6 6M14 4l-4 16"/></svg></div>
+        <h3>Small enough to read</h3>
+        <p><span data-build="go_loc">5,200</span> lines of Go and no third-party modules. The whole dependency surface is this repo and the Go toolchain. You can audit it in an afternoon.</p>
+      </div>
+      <div class="card card-big">
+        <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
+        <h3>Answers, not noise</h3>
+        <p>A ranked Top 10 shows what matters this week. A cooldown turns one brute-force campaign into one alert, not five hundred.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="detections">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">The Top 10</p>
+      <h2>Ten attacks. Ranked.</h2>
+      <p class="lead">Each category maps to MITRE ATT&amp;CK and ranks by severity inside the window. Critical counts ten, high five, medium two, low one.</p>
+    </div>
+    <div class="grid grid-5">
+      <article class="cat"><div class="cat-top"><span class="cat-id">PS01</span></div><h3>SSH brute force</h3><p>Five failed logins from one IP in five minutes. Twenty is critical.</p><div class="tags"><span class="tag tag-src">auth log</span><span class="tag">T1110</span></div></article>
+      <article class="cat"><div class="cat-top"><span class="cat-id">PS02</span></div><h3>Suspicious login</h3><p>A success after failures, a direct root login, or a first login from a new source.</p><div class="tags"><span class="tag tag-src">auth log</span><span class="tag">T1078</span></div></article>
+      <article class="cat"><div class="cat-top"><span class="cat-id">PS03</span></div><h3>Insecure posture</h3><p>Password SSH, root login, empty passwords, the pi user with a password, telnet, no auto updates.</p><div class="tags"><span class="tag tag-src">audit</span><span class="tag">T1078.001</span><span class="tag">T1021.004</span></div></article>
+      <article class="cat"><div class="cat-top"><span class="cat-id">PS04</span></div><h3>Privilege escalation</h3><p>A new SUID binary, a sudoers change, a user added to sudo or docker, risky sudo use.</p><div class="tags"><span class="tag tag-src">FIM</span><span class="tag tag-src">SUID walk</span><span class="tag">T1548</span></div></article>
+      <article class="cat"><div class="cat-top"><span class="cat-id">PS05</span></div><h3>Persistence</h3><p>New cron jobs, systemd units, authorized_keys lines, shell profile and udev changes.</p><div class="tags"><span class="tag tag-src">FIM</span><span class="tag">T1053.003</span><span class="tag">T1098.004</span></div></article>
+      <article class="cat"><div class="cat-top"><span class="cat-id">PS06</span></div><h3>Cryptominer</h3><p>Known miner names, stratum pool arguments, hot processes in /tmp or from a deleted binary.</p><div class="tags"><span class="tag tag-src">/proc</span><span class="tag">T1496</span></div></article>
+      <article class="cat"><div class="cat-top"><span class="cat-id">PS07</span></div><h3>Unexpected listener</h3><p>A port that was not open during learning. Known backdoor ports are critical.</p><div class="tags"><span class="tag tag-src">/proc net</span><span class="tag">T1571</span></div></article>
+      <article class="cat"><div class="cat-top"><span class="cat-id">PS08</span></div><h3>Reverse shell</h3><p>A shell or interpreter with stdin, stdout or stderr wired to a TCP socket.</p><div class="tags"><span class="tag tag-src">/proc fd</span><span class="tag">T1059.004</span></div></article>
+      <article class="cat"><div class="cat-top"><span class="cat-id">PS09</span></div><h3>Port scan</h3><p>One source hits twelve or more ports in sixty seconds in the firewall drop log.</p><div class="tags"><span class="tag tag-src">kernel log</span><span class="tag">T1046</span></div></article>
+      <article class="cat"><div class="cat-top"><span class="cat-id">PS10</span></div><h3>File tampering</h3><p>passwd, shadow, PAM, sshd_config, ld.so.preload, or a new UID 0 account.</p><div class="tags"><span class="tag tag-src">FIM</span><span class="tag">T1574.006</span><span class="tag">T1556.003</span></div></article>
+    </div>
+    <p class="note">Next on the roadmap: PS11 fileless execution, PS12 k3s and container escape, and multi-stage attack chains. <a href="roadmap.html">See the roadmap</a>.</p>
+  </div>
+</section>
+
+<section class="section section-alt" id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">How it works</p>
+      <h2>From log line to alert in one process.</h2>
+      <p class="lead">No manager, no database, no agent fleet server. Seven detectors feed one engine, and the engine feeds the tools you already run.</p>
+    </div>
+    <div class="pipe">
+      <div class="pipe-col">
+        <h3>Signals</h3>
+        <ul>
+          <li>journald or auth.log</li>
+          <li>kernel drop log</li>
+          <li>/proc <span>every 15s</span></li>
+          <li>/proc/1/net <span>every 30s</span></li>
+          <li>/etc, cron, systemd <span>every 60s</span></li>
+          <li>SUID walk <span>every 6h</span></li>
+          <li>posture audit <span>every 6h</span></li>
+        </ul>
+      </div>
+      <div class="pipe-arrow" aria-hidden="true"><svg viewBox="0 0 20 20"><path fill="none" stroke="currentColor" stroke-width="2" d="M2 10h15M12 5l5 5-5 5"/></svg></div>
+      <div class="pipe-col">
+        <h3>Detectors</h3>
+        <ul>
+          <li>auth</li>
+          <li>portscan</li>
+          <li>proc</li>
+          <li>listeners</li>
+          <li>fim</li>
+          <li>suid</li>
+          <li>audit</li>
+        </ul>
+      </div>
+      <div class="pipe-arrow" aria-hidden="true"><svg viewBox="0 0 20 20"><path fill="none" stroke="currentColor" stroke-width="2" d="M2 10h15M12 5l5 5-5 5"/></svg></div>
+      <div class="pipe-col core">
+        <h3>Engine</h3>
+        <ul>
+          <li>sanitize every string</li>
+          <li>dedupe, 15m cooldown</li>
+          <li>tag with MITRE IDs</li>
+          <li>rank the Top 10</li>
+        </ul>
+      </div>
+      <div class="pipe-arrow" aria-hidden="true"><svg viewBox="0 0 20 20"><path fill="none" stroke="currentColor" stroke-width="2" d="M2 10h15M12 5l5 5-5 5"/></svg></div>
+      <div class="pipe-col">
+        <h3>Outputs</h3>
+        <ul>
+          <li>/metrics <span>:9817</span></li>
+          <li>JSON events</li>
+          <li>ntfy, Discord, Slack</li>
+          <li>any webhook</li>
+          <li>/api/top10</li>
+          <li>state.json</li>
+        </ul>
+      </div>
+    </div>
+    <div class="facts">
+      <div class="fact"><h3>Learns first</h3><p>For ten minutes it records listeners and login sources without alerting.</p></div>
+      <div class="fact"><h3>Alerts once</h3><p>A changed file alerts once, then the new hash becomes the baseline.</p></div>
+      <div class="fact"><h3>Knows apt</h3><p>If a package manager is running, file change severity drops one level.</p></div>
+      <div class="fact"><h3>Trusts no input</h3><p>Every name, path and command line passes one sanitizer before output.</p></div>
+      <div class="fact"><h3>Keeps a budget</h3><p>Thirty alerts an hour, and critical alerts get their own budget.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="see">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">See it</p>
+      <h2>Fits the stack you run.</h2>
+      <p class="lead">Prometheus metrics, a Grafana dashboard, one JSON event per line, and push alerts. Nothing new to host.</p>
+    </div>
+    <div class="tabs" data-tabs>
+      <div class="tablist" role="tablist" aria-label="Outputs">
+        <button type="button" role="tab" id="tab-grafana" aria-controls="panel-grafana" aria-selected="true">Grafana</button>
+        <button type="button" role="tab" id="tab-json" aria-controls="panel-json" aria-selected="false">JSON event</button>
+        <button type="button" role="tab" id="tab-prom" aria-controls="panel-prom" aria-selected="false">Prometheus</button>
+        <button type="button" role="tab" id="tab-alerts" aria-controls="panel-alerts" aria-selected="false">Push alerts</button>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="panel-grafana" aria-labelledby="tab-grafana">
+        <p>The bundled dashboard: severity totals, the ranked Top 10, events over time, failing posture checks, SSH failures per node and detector freshness.</p>
+        <img src="assets/brand/grafana-top10.png" alt="The pisentry Grafana dashboard showing the ranked Top 10 and events over time" width="1600" height="900" loading="lazy">
+      </div>
+      <div class="tabpanel" role="tabpanel" id="panel-json" aria-labelledby="tab-json">
+        <p>One object per line on stdout, so journald, kubectl logs and any log shipper can read it.</p>
+        <div class="code"><pre>{"time":"2026-10-15T05:14:02Z","host":"kubepi","category":"PS08",
+ "category_name":"Reverse shell","severity":"critical","mitre":["T1059.004"],
+ "detector":"proc",
+ "summary":"Reverse shell: bash (pid 5358) has fd 0 connected to 192.0.2.2:4445",
+ "fields":{"pid":"5358","ppid":"1","comm":"bash","exe":"/usr/bin/bash",
+           "remote":"192.0.2.2:4445","fd":"0","uid":"0"}}</pre></div>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="panel-prom" aria-labelledby="tab-prom">
+        <p>Event counters start at zero, so <code>increase()</code> sees the first event. Alert on the agent going quiet, not just on attacks.</p>
+        <div class="code"><pre><span class="m"># TYPE pisentry_events_total counter</span>
+pisentry_events_total{category="PS08",name="Reverse shell",severity="critical"} 1
+pisentry_events_total{category="PS01",name="SSH brute force",severity="high"} 1
+pisentry_unexpected_listeners 2
+pisentry_detector_last_run_timestamp_seconds{detector="proc"} 1.7605e+09
+pisentry_up{host="kubepi"} 1
+
+<span class="m"># alert rules worth having</span>
+increase(pisentry_events_total{severity="critical"}[5m]) &gt; 0
+absent(pisentry_up)
+time() - pisentry_detector_last_run_timestamp_seconds{detector=~"proc|listeners|fim"} &gt; 900</pre></div>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="panel-alerts" aria-labelledby="tab-alerts">
+        <p>High and critical events go to ntfy, Discord, Slack or any webhook. The URL and token come from the environment, never from the config file.</p>
+        <div class="code"><pre><span class="m"># /etc/pisentry/config.json</span>
+"alerts": { "type": "ntfy", "min_severity": "high", "max_per_hour": 30 }
+
+<span class="m"># /etc/pisentry/pisentry.env  (mode 0600)</span>
+PISENTRY_WEBHOOK_URL=https://ntfy.sh/a-long-random-topic-name
+
+<span class="p">$</span> sudo systemctl restart pisentry &amp;&amp; sudo pisentry test-alert</pre></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="pi">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow"><span class="sq"></span>Built for the Pi</p>
+      <h2>Light enough for a 2 GB board.</h2>
+      <p class="lead">It runs on three Pi 4 nodes and one x86 box in a k3s cluster every day. The numbers below come from that cluster.</p>
+    </div>
+    <div class="hw">
+      <div class="hw-list">
+        <div class="hw-item">
+          <div class="arch">arm64<small>pisentry-linux-arm64</small></div>
+          <div><h3>Pi 5, Pi 4, Pi 400, Pi 3, Zero 2 W <span class="status status-tested">tested on Pi 4</span></h3><p>64-bit Raspberry Pi OS, Ubuntu or Debian. Also proven in CI on native arm64 runners.</p></div>
+        </div>
+        <div class="hw-item">
+          <div class="arch">armv7<small>pisentry-linux-armv7</small></div>
+          <div><h3>Pi 2, Pi 3, Zero 2 W on 32-bit OS <span class="status status-builds">builds</span></h3><p>Same code, cross-compiled. Hardware test reports are welcome.</p></div>
+        </div>
+        <div class="hw-item">
+          <div class="arch">amd64<small>pisentry-linux-amd64</small></div>
+          <div><h3>x86 nodes in the same cluster <span class="status status-tested">tested on RHEL 10</span></h3><p>Works with SELinux enforcing. One multi-arch image covers the whole cluster.</p></div>
+        </div>
+        <div class="hw-item">
+          <div class="arch">armv6<small>not built yet</small></div>
+          <div><h3>Pi 1 and the first Pi Zero <span class="status status-builds">planned</span></h3><p>On the roadmap with ARM benchmarks.</p></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h3>Memory per node</h3>
+          <p>Measured with kubectl top on 2026-10-16. The hard cap is 96 MiB under systemd and in the pod.</p>
+          <div class="meter">
+            <div class="meter-row"><div class="name">Pi 4, 8 GB<small>control plane</small></div><svg class="bar" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="bar-fg" width="31.25" height="8"/></svg><div class="val">30 MiB</div></div>
+            <div class="meter-row"><div class="name">Pi 4, 4 GB<small>worker</small></div><svg class="bar" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="bar-fg" width="10.42" height="8"/></svg><div class="val">10 MiB</div></div>
+            <div class="meter-row"><div class="name">Pi 4, 2 GB<small>worker</small></div><svg class="bar" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="bar-fg" width="16.67" height="8"/></svg><div class="val">16 MiB</div></div>
+            <div class="meter-row"><div class="name">x86, RHEL 10<small>worker</small></div><svg class="bar" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="bar-fg" width="11.46" height="8"/></svg><div class="val">11 MiB</div></div>
+          </div>
+          <p class="note">CPU was 1 to 3 millicores per node. That is under one third of one percent of a core.</p>
+        </div>
+        <div class="grid grid-2 mt">
+          <div class="fact"><h3>Kind to SD cards</h3><p>State is written only when it changed, at most every 30 seconds.</p></div>
+          <div class="fact"><h3>Safe on power loss</h3><p>Writes are atomic and fsynced. A power cut leaves the old file or the new one.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="compare">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Compared</p>
+      <h2>Runs next to Falco, not instead of it.</h2>
+      <p class="lead">Falco is great at the container runtime. pisentry covers the host underneath: auth abuse, posture, files and persistence.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col"></th><th scope="col">Falco</th><th scope="col" class="col-us">pisentry</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Signal</th><td>Syscalls via eBPF or a kernel module</td><td class="col-us">Logs, /proc, file hashes</td></tr>
+          <tr><th scope="row">Best at</th><td>Container runtime behavior</td><td class="col-us">SSH and auth abuse, posture, file integrity, host persistence</td></tr>
+          <tr><th scope="row">Stock Pi kernel</th><td>No BTF, so a kernel module must be built per node</td><td class="col-us yes">Runs as is</td></tr>
+          <tr><th scope="row">Needs</th><td>Privileged pod, kernel driver</td><td class="col-us">Three capabilities, no kernel features</td></tr>
+          <tr><th scope="row">Memory request</th><td>128 Mi</td><td class="col-us">24 Mi</td></tr>
+          <tr><th scope="row">Sees a 1 ms process</th><td class="yes">Yes</td><td class="col-us">No, it polls every 15 s</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="install">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Get started</p>
+      <h2>Audit a Pi in four commands.</h2>
+      <p class="lead">No install and no daemon. The audit exits with code 2 if anything is high or critical, so it also works in scripts.</p>
+    </div>
+    <div class="tabs" data-tabs>
+      <div class="tablist" role="tablist" aria-label="Install options">
+        <button type="button" role="tab" id="tab-audit" aria-controls="panel-audit" aria-selected="true">Audit</button>
+        <button type="button" role="tab" id="tab-systemd" aria-controls="panel-systemd" aria-selected="false">systemd</button>
+        <button type="button" role="tab" id="tab-k8s" aria-controls="panel-k8s" aria-selected="false">k3s and Flux</button>
+        <button type="button" role="tab" id="tab-verify" aria-controls="panel-verify" aria-selected="false">Verify</button>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="panel-audit" aria-labelledby="tab-audit">
+        <div class="code"><button class="copy" type="button" data-copy>Copy</button><pre>curl -fsSLO https://github.com/MrGuato/pisentry/releases/latest/download/pisentry-linux-arm64
+curl -fsSLO https://github.com/MrGuato/pisentry/releases/latest/download/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
+chmod +x pisentry-linux-arm64 &amp;&amp; sudo ./pisentry-linux-arm64 audit</pre></div>
+        <p>Use <code>pisentry-linux-armv7</code> on 32-bit Pi OS and <code>pisentry-linux-amd64</code> on x86.</p>
+        <div class="code"><pre><span class="m">FAIL    high      SSH-02  SSH root login permitted       PermitRootLogin yes</span>
+<span class="m">FAIL    medium    SSH-01  SSH password authentication enabled</span>
+How to fix:
+  SSH-02: Set 'PermitRootLogin no' (or prohibit-password if you need key-based root).</pre></div>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="panel-systemd" aria-labelledby="tab-systemd">
+        <div class="code"><button class="copy" type="button" data-copy>Copy</button><pre>git clone https://github.com/MrGuato/pisentry &amp;&amp; cd pisentry
+sudo ./deploy/install.sh</pre></div>
+        <p>The binary goes to /usr/local/bin, config to /etc/pisentry and secrets to a 0600 env file. The unit keeps two capabilities, a syscall filter, a read-only system and a 96 MiB memory cap.</p>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="panel-k8s" aria-labelledby="tab-k8s">
+        <p>Copy <code>deploy/kubernetes/</code> into your cluster repo. The DaemonSet pins the image by digest, because this agent is root-equivalent on every node.</p>
+        <div class="code"><button class="copy" type="button" data-copy>Copy</button><pre>kubectl -n pisentry get ds pisentry
+kubectl -n pisentry exec ds/pisentry -- pisentry report
+kubectl -n pisentry logs -l app.kubernetes.io/name=pisentry -f | jq 'select(.severity=="critical")'</pre></div>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="panel-verify" aria-labelledby="tab-verify">
+        <p>Releases after v0.1.0 are signed by the release workflow with Sigstore cosign. You need cosign 3 or later.</p>
+        <div class="code"><button class="copy" type="button" data-copy>Copy</button><pre>cosign verify-blob \
+  --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/MrGuato/pisentry/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  SHA256SUMS</pre></div>
+        <p><a href="security.html#verify">More ways to verify</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="trust">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Trust</p>
+      <h2>Security you can check.</h2>
+      <p class="lead">A host agent runs as root. So every step from commit to container is locked down, and you can check each one yourself.</p>
+    </div>
+    <div class="trust">
+      <div class="trust-item"><h3>Signed commits</h3><p>main requires signed commits, a pull request and green checks. No force pushes, no bypass.</p></div>
+      <div class="trust-item"><h3>Signed releases</h3><p>Releases after v0.1.0 sign the image and checksums keyless with cosign. The identity is the release workflow.</p></div>
+      <div class="trust-item"><h3>Provenance and SBOM</h3><p>Every image ships SLSA provenance and an SBOM you can inspect with buildx.</p></div>
+      <div class="trust-item"><h3>Pinned, all of it</h3><p>Actions by commit SHA, base images by digest. Dependabot proposes, a human merges.</p></div>
+      <div class="trust-item"><h3>Scanned on every push</h3><p>govulncheck, CodeQL, staticcheck and go vet. Tests run on x86 with the race detector and on native arm64.</p></div>
+      <div class="trust-item"><h3>Scorecard <span data-build="scorecard">6.4</span></h3><p><a href="https://scorecard.dev/viewer/?uri=github.com/MrGuato/pisentry">OpenSSF Scorecard</a> grades the repo's practices in public.</p></div>
+    </div>
+    <p class="note"><a href="security.html">Read the security page</a> for the threat model, pod grants and how to report a bug in private.</p>
+  </div>
+</section>
+
+<section class="section section-alt" id="roadmap">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Roadmap</p>
+      <h2>Where it goes next.</h2>
+      <p class="lead">Rules you can load, real-time process events, attack chains and k3s checks. Live from GitHub milestones.</p>
+    </div>
+    <!-- build:roadmap-teaser -->
+    <div class="empty">The roadmap is built from GitHub milestones. <a href="https://github.com/MrGuato/pisentry/milestones">See the milestones</a>.</div>
+    <!-- /build:roadmap-teaser -->
+    <p class="note"><a href="roadmap.html">Open the full roadmap</a></p>
+  </div>
+</section>
+
+<section class="section" id="faq">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">FAQ</p>
+      <h2>Straight answers.</h2>
+    </div>
+    <div class="faq">
+      <details><summary>Does it replace Falco?</summary><div><p>No. Falco watches syscalls from the container runtime. pisentry watches the host: logs, files, processes and posture. Run both where you can. On a stock Pi kernel, pisentry may be the one that runs.</p></div></details>
+      <details><summary>Will it slow down my Pi?</summary><div><p>On a 2 GB Pi 4 in k3s it uses 16 MiB of memory and 2 millicores of CPU. It is capped at 96 MiB.</p></div></details>
+      <details><summary>Why does it run as root?</summary><div><p>It reads /etc/shadow, other users' /proc entries and the journal. The systemd unit keeps two capabilities and the pod keeps three. Everything else is taken away.</p></div></details>
+      <details><summary>What if an attacker gets root?</summary><div><p>Root wins. An attacker with root can stop the agent or edit its state. Ship events off the box and alert when <code>pisentry_up</code> goes missing. That is the real defense.</p></div></details>
+      <details><summary>Does it block attacks?</summary><div><p>Not today. pisentry detects and alerts. Automated response is on the roadmap, off by default and fenced by allowlists.</p></div></details>
+      <details><summary>Can I write my own rules?</summary><div><p>Thresholds, allowlists and extra watch paths are config today. A rule engine for your own patterns is the next milestone.</p></div></details>
+      <details><summary>What does it cost?</summary><div><p>Nothing. It is MIT licensed, and it stays that way.</p></div></details>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band">
+  <div class="wrap cta-grid">
+    <div>
+      <h2>Check your Pi in one minute.</h2>
+      <p>Download, verify, run. If the audit finds nothing, you sleep better. If it does, it tells you how to fix it.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/MrGuato/pisentry/releases/latest">Get <span data-build="release_tag">v0.1.0</span></a>
+        <a class="btn" href="https://github.com/MrGuato/pisentry#readme">Read the docs</a>
+      </div>
+    </div>
+    <div class="code"><button class="copy" type="button" data-copy>Copy</button><pre>curl -fsSLO https://github.com/MrGuato/pisentry/releases/latest/download/pisentry-linux-arm64
+curl -fsSLO https://github.com/MrGuato/pisentry/releases/latest/download/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
+chmod +x pisentry-linux-arm64 &amp;&amp; sudo ./pisentry-linux-arm64 audit</pre></div>
+  </div>
+</section>
+
+</main>
+
+<!-- include:footer -->
+</body>
+</html>
