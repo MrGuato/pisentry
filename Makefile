@@ -2,7 +2,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 IMAGE   ?= ghcr.io/mrguato/pisentry
 
-.PHONY: all test vet build dist image clean
+.PHONY: all test vet build dist image sim clean
 
 all: vet test build
 
@@ -30,3 +30,12 @@ image:
 
 clean:
 	rm -rf dist pisentry
+
+# Container-based attack simulation. Builds the binary in the pinned Go image,
+# then fires harmless stand-ins for eight detectors inside a python:3-slim
+# container and checks all eight fired. Needs only Docker, no root on the host.
+# See scripts/sim-container/ and CONTRIBUTING.md ("Proving a detector").
+sim:
+	docker run --rm -v "$(CURDIR)":/src -w /src golang:1.27-alpine \
+		sh -c 'CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o pisentry ./cmd/pisentry'
+	scripts/sim-container/sim.sh ./pisentry
