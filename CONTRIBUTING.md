@@ -31,7 +31,11 @@ CI runs the same steps plus `govulncheck`, on x86 and on a native arm64 runner.
 
 ## Proving a detector on a real host
 
-After the learning period, `sudo ./scripts/simulate-attacks.sh` fires harmless stand-ins for eight categories and cleans up after itself. If you add a category, add a step to that script.
+After the learning period, `sudo ./scripts/simulate-attacks.sh` fires harmless stand-ins for eight categories and cleans up after itself.
+
+No root, or no spare host? `make sim` does the same eight categories inside a container and needs only Docker. It builds the binary in `golang:1.27-alpine`, runs the agent in a `python:3-slim` container with file-mode logs and short intervals, fires the stand-ins from [scripts/sim-container/sim.sh](scripts/sim-container/sim.sh), writes `events.jsonl`, `report.json`, `metrics.txt` and `top10.json` to an output directory, and exits non-zero unless all eight categories fired.
+
+If you add a category, add a step to both `scripts/sim-container/sim.sh` and `scripts/simulate-attacks.sh`.
 
 ## Commit messages
 

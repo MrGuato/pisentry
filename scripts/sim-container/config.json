@@ -1,0 +1,40 @@
+{
+  "hostname": "pi-sim",
+  "listen": "0.0.0.0:9817",
+  "state_dir": "/var/lib/pisentry",
+  "learning_period": "20s",
+  "cooldown": "15m",
+  "logs": {
+    "source": "file",
+    "files": ["/var/log/auth.log", "/var/log/kern.log"],
+    "ssh_require_root": false
+  },
+  "ssh": {
+    "fail_threshold": 5,
+    "fail_window": "5m"
+  },
+  "portscan": {
+    "threshold": 12,
+    "window": "60s"
+  },
+  "listeners": {
+    "interval": "5s",
+    "ignore_loopback": true
+  },
+  "proc": {
+    "interval": "5s",
+    "cpu_threshold": 80
+  },
+  "fim": {
+    "interval": "5s"
+  },
+  "suid": {
+    "interval": "6h"
+  },
+  "audit": {
+    "interval": "10s"
+  },
+  "output": {
+    "stdout": true
+  }
+}

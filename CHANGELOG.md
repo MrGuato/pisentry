@@ -6,7 +6,8 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 
 ### Added
 
-- Release images are signed with cosign keyless signing by digest, and `SHA256SUMS` ships with a Sigstore bundle, `SHA256SUMS.sigstore.json`. Verification steps are in SECURITY.md
+- Container-based attack simulation (`make sim`, `scripts/sim-container/`): runs the agent in a `python:3-slim` container with file-mode logs and short detector intervals, fires harmless stand-ins for the eight simulatable categories, writes `events.jsonl`, `report.json`, `metrics.txt` and `top10.json`, and exits non-zero unless all eight fired. Proves detectors without root on a real host
+- `docs/assets/grafana-top10.png`: the bundled Grafana dashboard rendered from the container simulation
 
 ### Changed
 
