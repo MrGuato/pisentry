@@ -255,8 +255,15 @@ def issue_model(i):
     }
 
 
+def milestone_order(m):
+    """Sort by the version in the title (v0.2.0 before v0.10.0), then by number.
+    Milestone numbers never change, so renaming a milestone must not reorder by age."""
+    v = re.search(r"v(\d+)\.(\d+)\.(\d+)", m["title"])
+    return (0, tuple(int(x) for x in v.groups()), m["number"]) if v else (1, (), m["number"])
+
+
 def build_model(data):
-    ms = sorted(data.get("milestones") or [], key=lambda m: m["number"])
+    ms = sorted(data.get("milestones") or [], key=milestone_order)
     issues = [issue_model(i) for i in (data.get("issues") or []) if "pull_request" not in i and i.get("milestone")]
     by_ms = {}
     for i in issues:
