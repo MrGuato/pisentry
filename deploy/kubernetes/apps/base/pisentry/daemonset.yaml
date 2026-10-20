@@ -65,19 +65,27 @@ spec:
             - name: metrics
               containerPort: 9817
               protocol: TCP
+          # A Pi under disk load can take seconds to answer. With a 1s timeout
+          # a busy SD card is enough to kill the agent.
           livenessProbe:
             httpGet:
               path: /healthz
               port: metrics
             initialDelaySeconds: 10
             periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
           resources:
             requests:
               cpu: 10m
               memory: 24Mi
+            # The process stays under 60Mi. The kernel also charges the
+            # dentry/inode cache from the SUID and FIM walks to this cgroup,
+            # and at 96Mi that cache alone could fill the limit on a host
+            # with a large /home.
             limits:
               cpu: 200m
-              memory: 96Mi
+              memory: 256Mi
           securityContext:
             # Be honest about the blast radius: hostPID + SYS_PTRACE + an
             # unconfined LSM profile means a compromised pisentry is effectively

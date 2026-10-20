@@ -348,7 +348,7 @@ PISENTRY_WEBHOOK_URL=https://ntfy.sh/a-long-random-topic-name
       <div>
         <div class="card">
           <h3>Memory per node</h3>
-          <p>Measured with kubectl top on 2026-10-16. The hard cap is 96 MiB under systemd and in the pod.</p>
+          <p>Measured with kubectl top on 2026-10-16. The hard cap is 256 MiB under systemd and in the pod. The process stays small; the cap leaves room for kernel file cache, which counts against it.</p>
           <div class="meter">
             <div class="meter-row"><div class="name">Pi 4, 8 GB<small>control plane</small></div><svg class="bar" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="bar-fg" width="31.25" height="8"/></svg><div class="val">30 MiB</div></div>
             <div class="meter-row"><div class="name">Pi 4, 4 GB<small>worker</small></div><svg class="bar" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="bar-fg" width="10.42" height="8"/></svg><div class="val">10 MiB</div></div>
@@ -417,7 +417,7 @@ How to fix:
       <div class="tabpanel" role="tabpanel" id="panel-systemd" aria-labelledby="tab-systemd">
         <div class="code"><button class="copy" type="button" data-copy>Copy</button><pre>git clone https://github.com/MrGuato/pisentry &amp;&amp; cd pisentry
 sudo ./deploy/install.sh</pre></div>
-        <p>The binary goes to /usr/local/bin, config to /etc/pisentry and secrets to a 0600 env file. The unit keeps two capabilities, a syscall filter, a read-only system and a 96 MiB memory cap.</p>
+        <p>The binary goes to /usr/local/bin, config to /etc/pisentry and secrets to a 0600 env file. The unit keeps two capabilities, a syscall filter, a read-only system and a 256 MiB memory cap.</p>
       </div>
       <div class="tabpanel" role="tabpanel" id="panel-k8s" aria-labelledby="tab-k8s">
         <p>Copy <code>deploy/kubernetes/</code> into your cluster repo. The DaemonSet pins the image by digest, because this agent is root-equivalent on every node.</p>
@@ -479,7 +479,7 @@ kubectl -n pisentry logs -l app.kubernetes.io/name=pisentry -f | jq 'select(.sev
     </div>
     <div class="faq">
       <details><summary>Does it replace Falco?</summary><div><p>No. Falco watches syscalls from the container runtime. pisentry watches the host: logs, files, processes and posture. Run both where you can. On a stock Pi kernel, pisentry may be the one that runs.</p></div></details>
-      <details><summary>Will it slow down my Pi?</summary><div><p>On a 2 GB Pi 4 in k3s it uses 16 MiB of memory and 2 millicores of CPU. It is capped at 96 MiB.</p></div></details>
+      <details><summary>Will it slow down my Pi?</summary><div><p>On a 2 GB Pi 4 in k3s it uses 16 MiB of memory and 2 millicores of CPU. It is capped at 256 MiB.</p><p>One known case where it did: v0.1.0 had a 96 MiB cap and re-ran its SUID walk on every start. On a control-plane Pi with a large /home, the kernel cache from that walk filled the cap, the agent restarted in a loop, and its reads competed with k3s on the SD card. v0.1.1 raised the cap and resumes slow scans after a restart instead.</p></div></details>
       <details><summary>Why does it run as root?</summary><div><p>It reads /etc/shadow, other users' /proc entries and the journal. The systemd unit keeps two capabilities and the pod keeps three. Everything else is taken away.</p></div></details>
       <details><summary>What if an attacker gets root?</summary><div><p>Root wins. An attacker with root can stop the agent or edit its state. Ship events off the box and alert when <code>pisentry_up</code> goes missing. That is the real defense.</p></div></details>
       <details><summary>Does it block attacks?</summary><div><p>Not today. pisentry detects and alerts. Automated response is on the roadmap, off by default and fenced by allowlists.</p></div></details>
