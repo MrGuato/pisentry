@@ -1,6 +1,7 @@
 package detect
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/MrGuato/pisentry/internal/config"
+	"github.com/MrGuato/pisentry/internal/engine"
 	"github.com/MrGuato/pisentry/internal/event"
 	"github.com/MrGuato/pisentry/internal/logsrc"
 	"github.com/MrGuato/pisentry/internal/metrics"
@@ -303,3 +305,97 @@ func TestFIMDoesNotBlockOnFIFO(t *testing.T) {
 		t.Fatal("FIM blocked on a FIFO")
 	}
 }
+
+func TestAllDetectorsEmitSchemaV1(t *testing.T) {
+	root := t.TempDir()
+	procRoot := filepath.Join(root, "proc")
+	d, s, c := newDeps(t, func(cfg *config.Config) {
+		cfg.HostRoot = root
+		cfg.ProcRoot = procRoot
+		cfg.SUID.Paths = []string{"/usr/bin"}
+	})
+	eng := engine.New(d.Cfg, "pi-sim", d.Store, d.M)
+	eng.Now = d.Now
+	d.Emit = eng
+	eng.AddSink(engine.Sink(sinkAdapter{s}))
+
+	// 1. Auth (PS01, PS02, PS04)
+	a := NewAuth(d)
+	for i := 0; i < 5; i++ {
+		a.Handle(ssh("Failed password for root from 203.0.113.66 port 4100" + string(rune('1'+i)) + " ssh2"))
+	}
+	a.Handle(ssh("Accepted password for root from 203.0.113.66 port 41999 ssh2"))
+	a.Handle(logsrc.Line{Ident: "sudo", Msg: "  mallory : user NOT in sudoers ; TTY=pts/9 ; PWD=/tmp ; USER=root ; COMMAND=/bin/bash"})
+	a.Handle(logsrc.Line{Ident: "sudo", Msg: "      jon : TTY=pts/0 ; PWD=/home/jon ; USER=root ; COMMAND=/usr/bin/chmod u+s /usr/bin/find"})
+
+	// 2. PortScan (PS09)
+	ps := NewPortScan(d)
+	for port := 20; port < 35; port++ {
+		ps.Handle(logsrc.Line{Kernel: true, Ident: "kernel", Msg: "[UFW BLOCK] IN=eth0 OUT= SRC=198.51.100.23 DST=192.0.2.10 PROTO=TCP SPT=55555 DPT=" + itoa(port) + " SYN"})
+	}
+
+	// 3. FIM (PS05, PS10)
+	writeFile(t, root, "/etc/passwd", "root:x:0:0:root:/root:/bin/bash\n")
+	writeFile(t, root, "/etc/group", "root:x:0:\nsudo:x:27:\n")
+	writeFile(t, root, "/etc/crontab", "# base\n")
+	fim := NewFIM(d)
+	_ = fim.Scan()
+	writeFile(t, root, "/etc/cron.d/pisentry-sim", "# sim\n")
+	writeFile(t, root, "/etc/ld.so.preload", "/tmp/evil.so\n")
+	_ = fim.Scan()
+
+	// 4. SUID (PS04)
+	writeFile(t, root, "/usr/bin/passwd", "bin")
+	suid := NewSUID(d)
+	_ = suid.Scan()
+	writeFile(t, root, "/usr/bin/find", "bin")
+	_ = os.Chmod(filepath.Join(root, "/usr/bin/find"), 0o755|os.ModeSetuid)
+	_ = suid.Scan()
+
+	// 5. Listeners (PS07) & ProcWatch (PS06, PS08) via synthetic /proc
+	writeFile(t, procRoot, "/1/net/tcp", "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"+
+		"   0: 00000000:0016 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 100 1 0000000000000000 100 0 0 10 0\n")
+	lis := NewListeners(d)
+	d.Store.Update(func(st *state.State) { st.Baselines.ListenersSince = c.t.Add(-time.Hour) })
+	writeFile(t, procRoot, "/1/net/tcp", "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"+
+		"   0: 00000000:7A69 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 9001 1 0000000000000000 100 0 0 10 0\n"+
+		"   1: 0A0200C0:D431 020200C0:115D 01 00000000:00000000 00:00000000 00000000     0        0 9002 1 0000000000000000 20 4 30 10 -1\n")
+	writeFile(t, procRoot, "/500/stat", "500 (xmrig) R 1 500 500 0 -1 4194304 100 0 0 0 100 20 0 0 20 0 1 0 12345 1000000 100 18446744073709551615 0 0 0 0 0 0 0 0 0 0 0 0 17 0 0 0 0 0 0\n")
+	writeFile(t, procRoot, "/500/cmdline", "xmrig\x00--url=stratum+tcp://pool:3333\x00")
+	writeFile(t, procRoot, "/500/status", "Name:\txmrig\nUid:\t0\t0\t0\t0\n")
+	_ = os.Symlink("/tmp/xmrig", filepath.Join(procRoot, "500", "exe"))
+
+	writeFile(t, procRoot, "/600/stat", "600 (bash) S 1 600 600 0 -1 4194304 100 0 0 0 10 5 0 0 20 0 1 0 23456 1000000 100 18446744073709551615 0 0 0 0 0 0 0 0 0 0 0 0 17 0 0 0 0 0 0\n")
+	writeFile(t, procRoot, "/600/cmdline", "bash\x00-i\x00")
+	writeFile(t, procRoot, "/600/status", "Name:\tbash\nUid:\t0\t0\t0\t0\n")
+	_ = os.Symlink("/usr/bin/bash", filepath.Join(procRoot, "600", "exe"))
+	_ = os.MkdirAll(filepath.Join(procRoot, "600", "fd"), 0o755)
+	_ = os.Symlink("socket:[9002]", filepath.Join(procRoot, "600", "fd", "0"))
+	_ = os.Symlink(filepath.Join(procRoot, "1", "net"), filepath.Join(procRoot, "600", "net"))
+
+	_ = lis.Scan()
+	pw := NewProcWatch(d)
+	_ = pw.Scan()
+
+	// 6. Audit (PS03)
+	writeFile(t, root, "/etc/ssh/sshd_config", "PermitRootLogin yes\nPasswordAuthentication yes\n")
+	ar := NewAuditRunner(d)
+	_ = ar.Scan()
+
+	if len(s.evs) < 10 {
+		t.Fatalf("expected at least 10 events across detectors, got %d", len(s.evs))
+	}
+	for i, ev := range s.evs {
+		raw, err := json.Marshal(ev)
+		if err != nil {
+			t.Fatalf("event %d marshal: %v", i, err)
+		}
+		if err := event.ValidateJSON(raw); err != nil {
+			t.Errorf("event %d (%s/%s) failed schema v1 validation: %v\njson: %s", i, ev.Category, ev.Detector, err, raw)
+		}
+	}
+}
+
+type sinkAdapter struct{ s *sink }
+
+func (a sinkAdapter) Handle(e event.Event) { a.s.Emit(e) }

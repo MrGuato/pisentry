@@ -59,9 +59,10 @@ func (a *AuditRunner) Scan() error {
 		}
 		a.d.M.AuditFailing.Set(v, f.ID, string(f.Category), f.Severity.String())
 		if f.Status == audit.Fail && !prevFail[f.ID] && f.Severity >= event.Medium {
-			a.d.Emit.Emit(event.Event{
+			a.d.emit(event.Event{
 				Category: f.Category, Severity: f.Severity, Detector: "audit", Key: "audit|" + f.ID,
 				Summary: fmt.Sprintf("Posture check %s failing: %s", f.ID, f.Title),
+				Rule:    &event.RuleEntity{ID: f.ID, Title: f.Title},
 				Fields:  map[string]string{"check": f.ID, "detail": f.Detail, "fix": f.Fix},
 			})
 		}

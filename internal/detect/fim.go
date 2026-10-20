@@ -353,10 +353,21 @@ func (f *FIM) report(path, change string, old state.FileSig, ne fimEntry, hasNew
 		sev = sev.Bump(-1)
 		fields["package_manager_active"] = pm
 	}
-	f.d.Emit.Emit(event.Event{
+	fe := &event.FileEntity{
+		Path:       path,
+		HashBefore: short(old.Hash),
+		HashAfter:  fields["sha256"],
+	}
+	var ue *event.UserEntity
+	if hasNew {
+		ue = &event.UserEntity{UID: event.IntPtr(ne.sig.UID)}
+	}
+	f.d.emit(event.Event{
 		Category: sp.Category, Severity: sev, Detector: "fim",
 		Key:     path + "|" + change + "|" + fields["sha256"],
 		Summary: fmt.Sprintf("%s %s", path, change),
+		File:    fe,
+		User:    ue,
 		Fields:  fields,
 	})
 }
@@ -460,23 +471,24 @@ func (f *FIM) diffAccounts(acc map[string]string, groups map[string][]string) {
 		fields := map[string]string{"user": u, "uid": uid, "shell": shell}
 		switch {
 		case uid == "0" && u != "root" && (!existed || prevUID != "0"):
-			f.emitAcct(event.FileTamper, event.Critical, u, "uid0", fmt.Sprintf("Account %s now has UID 0 (root equivalent)", u), fields)
+			f.emitAcct(event.FileTamper, event.Critical, u, uid, "/etc/passwd", "uid0", fmt.Sprintf("Account %s now has UID 0 (root equivalent)", u), fields)
 		case !existed && loginShell(shell):
-			f.emitAcct(event.FileTamper, event.High, u, "new-login", fmt.Sprintf("New login account %s created (shell %s)", u, shell), fields)
+			f.emitAcct(event.FileTamper, event.High, u, uid, "/etc/passwd", "new-login", fmt.Sprintf("New login account %s created (shell %s)", u, shell), fields)
 		case !existed:
-			f.emitAcct(event.FileTamper, event.Low, u, "new-system", fmt.Sprintf("New non-login account %s created", u), fields)
+			f.emitAcct(event.FileTamper, event.Low, u, uid, "/etc/passwd", "new-system", fmt.Sprintf("New non-login account %s created", u), fields)
 		case !loginShell(prevShell) && loginShell(shell):
 			fields["old_shell"] = prevShell
-			f.emitAcct(event.Persistence, event.High, u, "shell", fmt.Sprintf("Service account %s was given a login shell (%s)", u, shell), fields)
+			f.emitAcct(event.Persistence, event.High, u, uid, "/etc/passwd", "shell", fmt.Sprintf("Service account %s was given a login shell (%s)", u, shell), fields)
 		default:
 			fields["old"] = prev
-			f.emitAcct(event.FileTamper, event.Medium, u, "changed", fmt.Sprintf("Account %s changed", u), fields)
+			f.emitAcct(event.FileTamper, event.Medium, u, uid, "/etc/passwd", "changed", fmt.Sprintf("Account %s changed", u), fields)
 		}
 	}
 	for g, mem := range groups {
 		for _, u := range mem {
 			if !contains(oldGroups[g], u) {
-				f.emitAcct(event.PrivEsc, event.High, u, "group-"+g,
+				uid, _, _ := strings.Cut(acc[u], ":")
+				f.emitAcct(event.PrivEsc, event.High, u, uid, "/etc/group", "group-"+g,
 					fmt.Sprintf("User %s added to privileged group %s", u, g),
 					map[string]string{"user": u, "group": g})
 			}
@@ -484,9 +496,16 @@ func (f *FIM) diffAccounts(acc map[string]string, groups map[string][]string) {
 	}
 }
 
-func (f *FIM) emitAcct(c event.Category, sev event.Severity, user, kind, summary string, fields map[string]string) {
-	f.d.Emit.Emit(event.Event{
+func (f *FIM) emitAcct(c event.Category, sev event.Severity, user, uidStr, filePath, kind, summary string, fields map[string]string) {
+	ue := &event.UserEntity{Name: user}
+	if n, err := strconv.Atoi(uidStr); err == nil && n >= 0 {
+		ue.UID = event.IntPtr(n)
+	}
+	f.d.emit(event.Event{
 		Category: c, Severity: sev, Detector: "fim", Key: "acct|" + kind + "|" + user,
-		Summary: summary, Fields: fields,
+		Summary: summary,
+		User:    ue,
+		File:    &event.FileEntity{Path: filePath},
+		Fields:  fields,
 	})
 }

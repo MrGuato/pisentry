@@ -219,12 +219,14 @@ pisentry categories                                 print the Top 10 catalog
 
 ## Outputs
 
-**Event JSON**, one per line on stdout:
+**Event JSON** ([Event Schema v1](docs/event-schema.json), [OCSF / ECS mapping](docs/event-schema.md)), one per line on stdout:
 
 ```json
-{"time":"2026-10-15T05:14:02Z","host":"kubepi","category":"PS08","category_name":"Reverse shell",
- "severity":"critical","mitre":["T1059.004"],"detector":"proc",
+{"id":"c4f1d2e8-7a3b-4c91-8e2f-19a0b3c4d5e6","schema_version":1,"time":"2026-10-15T05:14:02Z","host":"kubepi",
+ "category":"PS08","category_name":"Reverse shell","severity":"critical","mitre":["T1059.004"],"detector":"proc",
  "summary":"Reverse shell: bash (pid 5358) has fd 0 connected to 192.0.2.2:4445",
+ "process":{"pid":5358,"ppid":1,"start_time":98112,"uid":0,"comm":"bash","exe":"/usr/bin/bash","cmdline":"bash -i"},
+ "source":{"ip":"192.0.2.2","port":4445},"user":{"uid":0},
  "fields":{"pid":"5358","ppid":"1","comm":"bash","exe":"/usr/bin/bash","remote":"192.0.2.2:4445","fd":"0","uid":"0"}}
 ```
 

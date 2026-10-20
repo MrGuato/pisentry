@@ -2,11 +2,40 @@
 package event
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 )
+
+// SchemaVersion is the current pisentry event schema version.
+const SchemaVersion = 1
+
+var fallbackSeq atomic.Uint64
+
+// NewID returns a unique RFC 4122 v4 UUID string for an event.
+func NewID() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		n := fallbackSeq.Add(1)
+		return fmt.Sprintf("%016x-%016x", uint64(time.Now().UnixNano()), n)
+	}
+	b[6] = (b[6] & 0x0f) | 0x40 // version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // variant 10
+	return fmt.Sprintf("%s-%s-%s-%s-%s",
+		hex.EncodeToString(b[0:4]),
+		hex.EncodeToString(b[4:6]),
+		hex.EncodeToString(b[6:8]),
+		hex.EncodeToString(b[8:10]),
+		hex.EncodeToString(b[10:16]),
+	)
+}
+
+// IntPtr returns a pointer to v, used for optional integer fields where 0 is meaningful (such as root UID 0).
+func IntPtr(v int) *int { return &v }
 
 // Severity is an ordered event severity.
 type Severity int
@@ -77,6 +106,7 @@ func (s Severity) Bump(n int) Severity {
 type Category string
 
 const (
+	Internal        Category = "PS00"
 	SSHBruteForce   Category = "PS01"
 	SuspiciousLogin Category = "PS02"
 	InsecurePosture Category = "PS03"
@@ -129,21 +159,75 @@ func Lookup(c Category) CategoryInfo {
 			return ci
 		}
 	}
+	if c == Internal {
+		return CategoryInfo{ID: Internal, Slug: "internal", Name: "Agent operational"}
+	}
 	return CategoryInfo{ID: c, Name: string(c)}
 }
 
-// Event is a single security finding emitted by a detector.
+// ProcessEntity holds typed process fields for Event Schema v1.
+type ProcessEntity struct {
+	PID       int    `json:"pid,omitempty"`
+	PPID      int    `json:"ppid,omitempty"`
+	StartTime uint64 `json:"start_time,omitempty"`
+	UID       *int   `json:"uid,omitempty"`
+	Comm      string `json:"comm,omitempty"`
+	Exe       string `json:"exe,omitempty"`
+	Cmdline   string `json:"cmdline,omitempty"`
+}
+
+// SourceEntity holds typed network source or endpoint fields for Event Schema v1.
+type SourceEntity struct {
+	IP   string `json:"ip,omitempty"`
+	Port int    `json:"port,omitempty"`
+}
+
+// UserEntity holds typed account fields for Event Schema v1.
+type UserEntity struct {
+	Name string `json:"name,omitempty"`
+	UID  *int   `json:"uid,omitempty"`
+}
+
+// FileEntity holds typed file integrity fields for Event Schema v1.
+type FileEntity struct {
+	Path       string `json:"path,omitempty"`
+	HashBefore string `json:"hash_before,omitempty"`
+	HashAfter  string `json:"hash_after,omitempty"`
+}
+
+// ContainerEntity holds typed container and Kubernetes workload fields for Event Schema v1.
+type ContainerEntity struct {
+	ID        string `json:"id,omitempty"`
+	Pod       string `json:"pod,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// RuleEntity holds the rule or posture check identifier for Event Schema v1.
+type RuleEntity struct {
+	ID    string `json:"id,omitempty"`
+	Title string `json:"title,omitempty"`
+}
+
+// Event is a single security finding emitted by a detector (Event Schema v1).
 type Event struct {
-	Time         time.Time         `json:"time"`
-	Host         string            `json:"host"`
-	Category     Category          `json:"category"`
-	CategoryName string            `json:"category_name"`
-	Severity     Severity          `json:"severity"`
-	MITRE        []string          `json:"mitre,omitempty"`
-	Detector     string            `json:"detector"`
-	Summary      string            `json:"summary"`
-	Key          string            `json:"key,omitempty"`
-	Fields       map[string]string `json:"fields,omitempty"`
+	ID            string            `json:"id"`
+	SchemaVersion int               `json:"schema_version"`
+	Time          time.Time         `json:"time"`
+	Host          string            `json:"host"`
+	Category      Category          `json:"category"`
+	CategoryName  string            `json:"category_name"`
+	Severity      Severity          `json:"severity"`
+	MITRE         []string          `json:"mitre,omitempty"`
+	Detector      string            `json:"detector"`
+	Summary       string            `json:"summary"`
+	Key           string            `json:"key,omitempty"`
+	Process       *ProcessEntity    `json:"process,omitempty"`
+	Source        *SourceEntity     `json:"source,omitempty"`
+	User          *UserEntity       `json:"user,omitempty"`
+	File          *FileEntity       `json:"file,omitempty"`
+	Container     *ContainerEntity  `json:"container,omitempty"`
+	Rule          *RuleEntity       `json:"rule,omitempty"`
+	Fields        map[string]string `json:"fields,omitempty"`
 }
 
 // Emitter receives events from detectors.

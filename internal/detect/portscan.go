@@ -138,9 +138,10 @@ func (p *PortScan) Handle(l logsrc.Line) {
 	for i, v := range sample {
 		ps[i] = strconv.Itoa(v)
 	}
-	p.d.Emit.Emit(event.Event{
+	p.d.emit(event.Event{
 		Category: event.PortScan, Severity: event.High, Detector: "portscan", Key: src[1],
 		Summary: fmt.Sprintf("Port scan from %s: %d distinct ports in %s", src[1], n, event.Dur(cfg.Window.Duration)),
+		Source:  &event.SourceEntity{IP: src[1], Port: port},
 		Fields: map[string]string{
 			"src_ip": src[1], "distinct_ports": strconv.Itoa(n), "ports": strings.Join(ps, ","),
 			"proto": proto, "window": event.Dur(cfg.Window.Duration),
