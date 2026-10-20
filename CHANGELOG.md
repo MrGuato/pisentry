@@ -12,6 +12,11 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 
 ### Changed
 
+- The SUID walk and the posture audit resume their 6 hour schedule after a restart instead of running again on every start. The last run time is saved with the baselines, so `pisentry baseline reset` still forces a fresh scan. On a Pi that kept restarting, the repeated walk filled the page and inode cache, and the agent's own reads stalled other workloads on the same SD card
+- The SUID walk runs at idle disk priority so it yields to databases sharing the disk
+- Memory cap 96 MiB -> 256 MiB in the systemd unit (`MemoryMax`) and the Kubernetes DaemonSet. The process still uses about 12 MB; both caps also count the kernel dentry/inode cache from the walks, and 96 MiB could be filled by that cache alone
+- DaemonSet liveness probe: timeout 1s -> 5s, failureThreshold 3 -> 5, so a slow SD card does not get the agent killed
+- README and website state the new cap, and the FAQ describes the v0.1.0 restart loop on a control-plane Pi
 - Kubernetes manifests pin the image by release digest instead of by tag, and the staging overlay comment shows a digest override
 
 ## [0.1.0] - 2026-10-15

@@ -147,7 +147,7 @@ sudo ./deploy/install.sh --binary ./pisentry  # or a binary you built with make 
 
 The installer puts the binary in `/usr/local/bin`, config in `/etc/pisentry/config.json`, secrets in `/etc/pisentry/pisentry.env` (mode 0600), and enables `pisentry.service`.
 
-The unit runs as root because it has to read `/etc/shadow`, other users' `/proc/<pid>/fd` and the journal. Everything else is taken away: a two-capability bounding set, `ProtectSystem=strict`, `NoNewPrivileges`, a `@system-service` syscall filter, `MemoryDenyWriteExecute`, and a 96 MB memory cap. Read [deploy/systemd/pisentry.service](deploy/systemd/pisentry.service) before you trust it.
+The unit runs as root because it has to read `/etc/shadow`, other users' `/proc/<pid>/fd` and the journal. Everything else is taken away: a two-capability bounding set, `ProtectSystem=strict`, `NoNewPrivileges`, a `@system-service` syscall filter, `MemoryDenyWriteExecute`, and a 256 MB memory cap (the process uses about 12 MB; the rest is room for kernel file cache that is charged to the unit). Read [deploy/systemd/pisentry.service](deploy/systemd/pisentry.service) before you trust it.
 
 To enable push alerts with ntfy, set `"type": "ntfy"` under `alerts` in config.json and put this in pisentry.env:
 

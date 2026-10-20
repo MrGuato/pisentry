@@ -39,7 +39,16 @@ func (d Deps) learning() bool {
 	return d.now().Sub(created) < d.Cfg.LearningPeriod.Duration
 }
 
-// Loop runs fn immediately and then every interval until ctx ends.
+// resumeMin is the shortest interval whose schedule survives a restart.
+// Faster detectors just run on start; saving their run times would rewrite
+// the state file every few seconds.
+const resumeMin = 10 * time.Minute
+
+// Loop runs fn every interval until ctx ends. The first run comes right
+// away, unless the schedule is at least resumeMin and an earlier process
+// finished a run less than one interval ago. Then it waits out the rest,
+// so an agent that restarts does not repeat a long scan (the SUID walk)
+// on every start.
 func Loop(ctx context.Context, d Deps, name string, interval time.Duration, fn func() error) {
 	run := func() {
 		defer func() {
@@ -54,6 +63,20 @@ func Loop(ctx context.Context, d Deps, name string, interval time.Duration, fn f
 			return
 		}
 		d.M.DetectorLastRun.Set(float64(time.Now().Unix()), name)
+		if interval >= resumeMin {
+			d.Store.Update(func(s *state.State) { s.Baselines.LastRun[name] = d.now() })
+		}
+	}
+	if wait, last := d.resumeDelay(name, interval); wait > 0 {
+		d.M.DetectorLastRun.Set(float64(last.Unix()), name)
+		d.Log.Info("detector resumes its schedule", "detector", name, "next_run_in", wait.Round(time.Second).String())
+		t := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			t.Stop()
+			return
+		case <-t.C:
+		}
 	}
 	run()
 	t := time.NewTicker(interval)
@@ -66,6 +89,25 @@ func Loop(ctx context.Context, d Deps, name string, interval time.Duration, fn f
 			run()
 		}
 	}
+}
+
+// resumeDelay is how long a restarted detector should wait before its first
+// run, and when the last run finished. Zero means run now: no saved run, a
+// fast schedule, an overdue scan, or a saved time in the future (clock moved).
+func (d Deps) resumeDelay(name string, interval time.Duration) (time.Duration, time.Time) {
+	if interval < resumeMin {
+		return 0, time.Time{}
+	}
+	var last time.Time
+	d.Store.View(func(s *state.State) { last = s.Baselines.LastRun[name] })
+	if last.IsZero() {
+		return 0, last
+	}
+	since := d.now().Sub(last)
+	if since < 0 || since >= interval {
+		return 0, last
+	}
+	return interval - since, last
 }
 
 func parsePrefixes(cidrs []string) []netip.Prefix {
