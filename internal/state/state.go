@@ -49,6 +49,9 @@ type Baselines struct {
 	SUID           map[string]FileSig              `json:"suid"`
 	SUIDReady      bool                            `json:"suid_ready"`
 	Logins         map[string]map[string]time.Time `json:"logins"` // user -> ip -> last seen
+	// LastRun is when each slow detector last finished a scan. It lives with
+	// the baselines so a baseline reset also forces a fresh scan.
+	LastRun map[string]time.Time `json:"last_run,omitempty"`
 }
 
 type State struct {
@@ -91,6 +94,9 @@ func (s *State) init() {
 	}
 	if b.Logins == nil {
 		b.Logins = map[string]map[string]time.Time{}
+	}
+	if b.LastRun == nil {
+		b.LastRun = map[string]time.Time{}
 	}
 }
 

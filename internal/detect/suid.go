@@ -49,7 +49,10 @@ func (s *SUID) Run(ctx context.Context) {
 }
 
 // Walk returns every setuid/setgid regular file under the configured paths.
+// The walk runs at idle disk priority: on a Pi the root filesystem is often
+// an SD card shared with databases (k3s, Postgres) that must not stall.
 func (s *SUID) Walk() map[string]state.FileSig {
+	defer idleIO()()
 	cfg := s.d.Cfg
 	out := map[string]state.FileSig{}
 	for _, root := range cfg.SUID.Paths {
