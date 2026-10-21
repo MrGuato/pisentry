@@ -12,17 +12,32 @@ import (
 	"github.com/MrGuato/pisentry/internal/config"
 	"github.com/MrGuato/pisentry/internal/event"
 	"github.com/MrGuato/pisentry/internal/metrics"
+	"github.com/MrGuato/pisentry/internal/rules"
 	"github.com/MrGuato/pisentry/internal/state"
 )
 
 // Deps is what every detector gets.
 type Deps struct {
-	Cfg   *config.Config
-	Emit  event.Emitter
-	Store *state.Store
-	M     *metrics.Set
-	Log   *slog.Logger
-	Now   func() time.Time
+	Cfg     *config.Config
+	Emit    event.Emitter
+	Store   *state.Store
+	M       *metrics.Set
+	Log     *slog.Logger
+	Rules   *rules.Engine
+	RulesFn func() *rules.Engine
+	Now     func() time.Time
+}
+
+func (d Deps) rules() *rules.Engine {
+	if d.RulesFn != nil {
+		if r := d.RulesFn(); r != nil {
+			return r
+		}
+	}
+	if d.Rules != nil {
+		return d.Rules
+	}
+	return rules.Default()
 }
 
 func (d Deps) now() time.Time {

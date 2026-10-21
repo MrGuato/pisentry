@@ -11,14 +11,13 @@ import (
 	"github.com/MrGuato/pisentry/internal/engine"
 	"github.com/MrGuato/pisentry/internal/event"
 	"github.com/MrGuato/pisentry/internal/procfs"
+	"github.com/MrGuato/pisentry/internal/rules"
 )
 
 // clkTck is USER_HZ, 100 on every Linux arm, arm64 and amd64 build.
 const clkTck = 100
 
 var tempDirs = []string{"/tmp/", "/var/tmp/", "/dev/shm/", "/run/shm/", "/run/user/"}
-
-var stratumMarkers = []string{"stratum+tcp://", "stratum+ssl://", "stratum+tls://", "stratum2+tcp://", "--donate-level", "--randomx", "-a rx/0", "--algo=rx", "--coin=monero", "--cpu-max-threads-hint"}
 
 // ProcWatch covers PS06 (cryptominers) and PS08 (reverse shells) by polling
 // /proc. Polling means a process that lives for less than one interval can be
@@ -115,6 +114,12 @@ func (p *ProcWatch) Scan() error {
 	if err != nil {
 		return err
 	}
+	rs := p.d.rules()
+	eager := rs.UsesField(rules.SourceProcess, "process.uid") || rs.UsesField(rules.SourceProcess, "process.parent_comm")
+	shells := cfg.Proc.ShellNames
+	if len(shells) == 0 {
+		shells = rs.Catalog().ShellNames
+	}
 	nc := &netCache{proc: cfg.ProcRoot, byNS: map[string]map[uint64]procfs.Socket{}}
 	for _, s := range p.prev {
 		s.seen = false
@@ -144,11 +149,22 @@ func (p *ProcWatch) Scan() error {
 		comm := st.Comm
 		cmd := procfs.Cmdline(cfg.ProcRoot, pid)
 
-		// PS06: known miner names and pool command lines.
-		if hit := matchesAny(comm+" "+filepath.Base(exe), cfg.Proc.MinerNames); hit != "" {
-			p.emitMiner(id, event.Critical, pid, st, exe, cmd, cpu, "known miner name: "+hit)
-		} else if hit := matchesAny(cmd, stratumMarkers); hit != "" {
-			p.emitMiner(id, event.Critical, pid, st, exe, cmd, cpu, "mining pool arguments: "+hit)
+		// Process rules: PS06 miner names and pool command lines ship in the
+		// defaults, other categories come from rule packs and rules.d.
+		// proc.miner_names in the config is still honoured as an extra list.
+		minerHit := false
+		for _, hit := range p.matchProcessRules(rs, eager, pid, st, exe, cmd) {
+			if hit.Category == event.Cryptominer {
+				p.emitMiner(id, hit.Level, pid, st, exe, cmd, cpu, hit.Title, &hit)
+				minerHit = true
+			} else {
+				p.emitRule(id, pid, st, exe, cmd, hit)
+			}
+		}
+		if !minerHit {
+			if name := matchesAny(comm+" "+filepath.Base(exe), cfg.Proc.MinerNames); name != "" {
+				p.emitMiner(id, event.Critical, pid, st, exe, cmd, cpu, "known miner name: "+name, nil)
+			}
 		}
 
 		if cpu >= cfg.Proc.CPUThreshold {
@@ -158,17 +174,17 @@ func (p *ProcWatch) Scan() error {
 		}
 		if s.hot >= 2 && !contains(cfg.Proc.AllowComm, comm) {
 			if why := suspiciousExe(exe); why != "" {
-				p.emitMiner(id, event.Critical, pid, st, exe, cmd, cpu, "sustained high CPU, "+why)
+				p.emitMiner(id, event.Critical, pid, st, exe, cmd, cpu, "sustained high CPU, "+why, nil)
 			} else if port, remote := p.stratumConn(nc, pid); port != 0 {
-				p.emitMiner(id, event.High, pid, st, exe, cmd, cpu, fmt.Sprintf("sustained high CPU with connection to %s (common pool port %d)", remote, port))
+				p.emitMiner(id, event.High, pid, st, exe, cmd, cpu, fmt.Sprintf("sustained high CPU with connection to %s (common pool port %d)", remote, port), nil)
 			} else if s.hot == cfg.Proc.SustainedPolls {
 				p.emitMiner(id+"|sustained", event.Low, pid, st, exe, cmd, cpu,
-					fmt.Sprintf("sustained high CPU for %d polls", s.hot))
+					fmt.Sprintf("sustained high CPU for %d polls", s.hot), nil)
 			}
 		}
 
 		// PS08: shell or interpreter whose stdin/stdout is a TCP socket.
-		if isShell(comm, exe, cfg.Proc.ShellNames) {
+		if isShell(comm, exe, shells) {
 			p.checkRevShell(nc, id, pid, st, exe, cmd)
 		}
 	}
@@ -183,13 +199,36 @@ func (p *ProcWatch) Scan() error {
 	return nil
 }
 
+// matchProcessRules evaluates the process rules for one process and returns
+// every hit. The parent comm and uid cost extra /proc reads. When no rule
+// matches on them (eager false) they are only filled in, and the rules
+// re-evaluated, once something has matched, which is enough for exceptions.
+func (p *ProcWatch) matchProcessRules(rs *rules.Engine, eager bool, pid int, st procfs.Proc, exe, cmd string) []rules.Rule {
+	in := &rules.EvalInput{
+		Source:  rules.SourceProcess,
+		Process: event.ProcessEntity{PID: pid, PPID: st.PPID, Comm: st.Comm, Exe: exe, Cmdline: cmd},
+	}
+	if !eager && len(rs.Eval(in)) == 0 {
+		return nil
+	}
+	if uid := procfs.UID(p.d.Cfg.ProcRoot, pid); uid >= 0 {
+		in.Process.UID = event.IntPtr(uid)
+	}
+	in.ParentComm = parentComm(p.d.Cfg.ProcRoot, st.PPID)
+	return rs.Eval(in)
+}
+
 func (p *ProcWatch) stratumConn(nc *netCache, pid int) (int, string) {
+	ports := p.d.Cfg.Proc.StratumPorts
+	if len(ports) == 0 {
+		ports = p.d.rules().Catalog().StratumPorts
+	}
 	for _, ino := range procfs.SocketInodes(p.d.Cfg.ProcRoot, pid) {
 		s, ok := nc.lookup(pid, ino)
 		if !ok || s.State != procfs.TCPEstablished {
 			continue
 		}
-		if port := int(s.Remote.Port()); containsInt(p.d.Cfg.Proc.StratumPorts, port) && !s.Remote.Addr().IsLoopback() {
+		if port := int(s.Remote.Port()); containsInt(ports, port) && !s.Remote.Addr().IsLoopback() {
 			return port, s.Remote.String()
 		}
 	}
@@ -249,7 +288,7 @@ func parentComm(procRoot string, ppid int) string {
 	return st.Comm
 }
 
-func (p *ProcWatch) emitMiner(id string, sev event.Severity, pid int, st procfs.Proc, exe, cmd string, cpu float64, why string) {
+func (p *ProcWatch) emitMiner(id string, sev event.Severity, pid int, st procfs.Proc, exe, cmd string, cpu float64, why string, hit *rules.Rule) {
 	if p.flagged["miner|"+id] {
 		return
 	}
@@ -262,7 +301,7 @@ func (p *ProcWatch) emitMiner(id string, sev event.Severity, pid int, st procfs.
 		ue = &event.UserEntity{UID: uidPtr}
 	}
 	truncCmd := engine.Truncate(cmd, 300)
-	p.d.emit(event.Event{
+	ev := event.Event{
 		Category: event.Cryptominer, Severity: sev, Detector: "proc", Key: id,
 		Summary: fmt.Sprintf("Possible cryptominer %s (pid %d): %s", st.Comm, pid, why),
 		Process: &event.ProcessEntity{
@@ -274,6 +313,44 @@ func (p *ProcWatch) emitMiner(id string, sev event.Severity, pid int, st procfs.
 			"pid": strconv.Itoa(pid), "comm": st.Comm, "exe": exe, "cmdline": truncCmd,
 			"cpu_percent": strconv.FormatFloat(cpu, 'f', 0, 64), "reason": why,
 			"uid": strconv.Itoa(uid),
+		},
+	}
+	if hit != nil {
+		ev.MITRE = hit.MITRE
+		ev.Rule = &event.RuleEntity{ID: hit.ID, Title: hit.Title}
+	}
+	p.d.emit(ev)
+}
+
+// emitRule reports a process rule hit outside PS06, such as a GTFOBins or
+// reverse shell rule from a rule pack. Each rule fires once per process.
+func (p *ProcWatch) emitRule(id string, pid int, st procfs.Proc, exe, cmd string, hit rules.Rule) {
+	key := "rule|" + hit.ID + "|" + id
+	if p.flagged[key] {
+		return
+	}
+	p.flagged[key] = true
+	uid := procfs.UID(p.d.Cfg.ProcRoot, pid)
+	var uidPtr *int
+	var ue *event.UserEntity
+	if uid >= 0 {
+		uidPtr = event.IntPtr(uid)
+		ue = &event.UserEntity{UID: uidPtr}
+	}
+	truncCmd := engine.Truncate(cmd, 300)
+	p.d.emit(event.Event{
+		Category: hit.Category, Severity: hit.Level, Detector: "proc", Key: hit.ID + "|" + id,
+		Summary: fmt.Sprintf("%s: %s (pid %d)", hit.Title, st.Comm, pid),
+		MITRE:   hit.MITRE,
+		Rule:    &event.RuleEntity{ID: hit.ID, Title: hit.Title},
+		Process: &event.ProcessEntity{
+			PID: pid, PPID: st.PPID, StartTime: st.StartTime, UID: uidPtr,
+			Comm: st.Comm, Exe: exe, Cmdline: truncCmd,
+		},
+		User: ue,
+		Fields: map[string]string{
+			"pid": strconv.Itoa(pid), "comm": st.Comm, "exe": exe, "cmdline": truncCmd,
+			"uid": strconv.Itoa(uid), "rule": hit.ID,
 		},
 	})
 }

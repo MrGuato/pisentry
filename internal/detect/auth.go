@@ -13,6 +13,7 @@ import (
 	"github.com/MrGuato/pisentry/internal/engine"
 	"github.com/MrGuato/pisentry/internal/event"
 	"github.com/MrGuato/pisentry/internal/logsrc"
+	"github.com/MrGuato/pisentry/internal/rules"
 	"github.com/MrGuato/pisentry/internal/state"
 )
 
@@ -46,18 +47,6 @@ var (
 	reSudoIncorrect = regexp.MustCompile(`^\s*(\S+) : (\d+) incorrect password attempts?`)
 	reSudoCmd       = regexp.MustCompile(`^\s*(\S+) : .*?USER=(\S+) ; COMMAND=(.*)$`)
 	reSuFailed      = regexp.MustCompile(`FAILED SU \(to (\S+)\) (\S+) on|FAILED su for (\S+) by (\S+)|pam_unix\(su(?:-l)?:auth\): authentication failure;.*?ruser=(\S*)`)
-
-	// Commands run through sudo that are classic escalation or persistence moves.
-	riskySudo = []*regexp.Regexp{
-		regexp.MustCompile(`chmod\s+(?:[ugoa]*\+[rwx]*s|[0-7]?[2467][0-7]{3}\b)`),
-		regexp.MustCompile(`/dev/tcp/|\bnc(?:at)?\s+.*-e\s|\bsocat\b.*exec:`),
-		regexp.MustCompile(`\b(?:curl|wget)\b[^|]*\|\s*(?:sudo\s+)?(?:ba|da|z)?sh\b`),
-		regexp.MustCompile(`base64\s+(?:-d|--decode)[^|]*\|\s*(?:ba|da)?sh\b`),
-		regexp.MustCompile(`\busermod\s+.*-a?G\s*(?:sudo|wheel|docker|admin)\b`),
-		regexp.MustCompile(`\b(?:useradd|adduser)\b.*(?:-o\b|-u\s*0\b)`),
-		regexp.MustCompile(`/etc/(?:sudoers|shadow|passwd|ld\.so\.preload)`),
-		regexp.MustCompile(`\bsetcap\b`),
-	}
 )
 
 // Handle processes one log line.
@@ -318,22 +307,30 @@ func (a *Auth) handleSudo(l logsrc.Line) {
 		return
 	}
 	if m := reSudoCmd.FindStringSubmatch(msg); m != nil {
-		for _, re := range riskySudo {
-			if re.MatchString(m[3]) {
-				cmd := engine.Truncate(m[3], 300)
-				a.d.emit(event.Event{
-					Category: event.PrivEsc, Severity: event.Medium, Detector: "auth",
-					Key:     "sudo-risky|" + m[1] + "|" + m[3],
-					Summary: fmt.Sprintf("Risky command via sudo by %s as %s", m[1], m[2]),
-					User:    userEntity(m[1]),
-					Process: &event.ProcessEntity{Cmdline: cmd},
-					Fields: map[string]string{
-						"user": m[1], "as_user": m[2], "command": cmd,
-						"pattern": re.String(),
-					},
-				})
-				return
-			}
+		in := &rules.EvalInput{
+			Source:   rules.SourceLog,
+			LogIdent: "sudo",
+			LogMsg:   msg,
+			User:     *userEntity(m[1]),
+			Process:  event.ProcessEntity{Cmdline: m[3]},
+		}
+		hits := a.d.rules().Eval(in)
+		if len(hits) > 0 {
+			hit := hits[0]
+			cmd := engine.Truncate(m[3], 300)
+			a.d.emit(event.Event{
+				Category: hit.Category, Severity: hit.Level, Detector: "auth",
+				MITRE:   hit.MITRE,
+				Key:     "sudo-risky|" + m[1] + "|" + m[3],
+				Summary: fmt.Sprintf("Risky command via sudo by %s as %s", m[1], m[2]),
+				User:    userEntity(m[1]),
+				Process: &event.ProcessEntity{Cmdline: cmd},
+				Rule:    &event.RuleEntity{ID: hit.ID, Title: hit.Title},
+				Fields: map[string]string{
+					"user": m[1], "as_user": m[2], "command": cmd,
+					"pattern": hit.ID,
+				},
+			})
 		}
 	}
 }

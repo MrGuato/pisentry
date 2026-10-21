@@ -5,6 +5,9 @@
   "logs": {
     "source": "auto"
   },
+  "rules": {
+    "dir": "/etc/pisentry/rules.d"
+  },
   "ssh": {
     "fail_threshold": 5,
     "fail_window": "5m",

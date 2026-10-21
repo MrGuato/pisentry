@@ -1,0 +1,382 @@
+{
+  "schema_version": 1,
+  "catalog": {
+    "stratum_ports": [
+      3333,
+      3334,
+      4444,
+      5555,
+      7777,
+      8888,
+      9999,
+      14444,
+      14433,
+      45560,
+      45700
+    ],
+    "shell_names": [
+      "sh",
+      "bash",
+      "dash",
+      "zsh",
+      "ash",
+      "ksh",
+      "mksh",
+      "fish",
+      "busybox",
+      "python",
+      "python2",
+      "python3",
+      "perl",
+      "ruby",
+      "php",
+      "lua",
+      "node"
+    ],
+    "backdoor_ports": [
+      { "port": 23, "note": "telnet" },
+      { "port": 1337, "note": "backdoor" },
+      { "port": 4444, "note": "metasploit default" },
+      { "port": 5554, "note": "backdoor" },
+      { "port": 6666, "note": "irc/backdoor" },
+      { "port": 6667, "note": "irc" },
+      { "port": 12345, "note": "netbus" },
+      { "port": 31337, "note": "back orifice" },
+      { "port": 54321, "note": "backdoor" }
+    ],
+    "fim_watches": [
+      { "pattern": "/etc/ld.so.preload", "category": "PS10", "severity": "critical", "recursive": false },
+      { "pattern": "/etc/ssh/sshd_config", "category": "PS10", "severity": "high", "recursive": false },
+      { "pattern": "/etc/ssh/sshd_config.d", "category": "PS10", "severity": "high", "recursive": false },
+      { "pattern": "/etc/pam.d", "category": "PS10", "severity": "high", "recursive": false },
+      { "pattern": "/etc/ld.so.conf", "category": "PS10", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/ld.so.conf.d", "category": "PS10", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/passwd", "category": "PS10", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/shadow", "category": "PS10", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/group", "category": "PS10", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/gshadow", "category": "PS10", "severity": "low", "recursive": false },
+      { "pattern": "/etc/nsswitch.conf", "category": "PS10", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/hosts", "category": "PS10", "severity": "low", "recursive": false },
+      { "pattern": "/etc/sudoers", "category": "PS04", "severity": "high", "recursive": false },
+      { "pattern": "/etc/sudoers.d", "category": "PS04", "severity": "high", "recursive": false },
+      { "pattern": "/root/.ssh/authorized_keys", "category": "PS05", "severity": "high", "recursive": false },
+      { "pattern": "/root/.ssh/authorized_keys2", "category": "PS05", "severity": "high", "recursive": false },
+      { "pattern": "/home/*/.ssh/authorized_keys", "category": "PS05", "severity": "high", "recursive": false },
+      { "pattern": "/home/*/.ssh/authorized_keys2", "category": "PS05", "severity": "high", "recursive": false },
+      { "pattern": "/etc/crontab", "category": "PS05", "severity": "high", "recursive": false },
+      { "pattern": "/etc/cron.d", "category": "PS05", "severity": "high", "recursive": false },
+      { "pattern": "/var/spool/cron/crontabs", "category": "PS05", "severity": "high", "recursive": false },
+      { "pattern": "/var/spool/cron", "category": "PS05", "severity": "high", "recursive": false },
+      { "pattern": "/etc/rc.local", "category": "PS05", "severity": "high", "recursive": false },
+      { "pattern": "/root/.config/systemd/user", "category": "PS05", "severity": "high", "recursive": true },
+      { "pattern": "/home/*/.config/systemd/user", "category": "PS05", "severity": "high", "recursive": true },
+      { "pattern": "/etc/cron.hourly", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/cron.daily", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/cron.weekly", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/cron.monthly", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/systemd/system", "category": "PS05", "severity": "medium", "recursive": true },
+      { "pattern": "/etc/init.d", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/udev/rules.d", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/xdg/autostart", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/update-motd.d", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/profile", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/profile.d", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/bash.bashrc", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/etc/environment", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/root/.bashrc", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/root/.profile", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/home/*/.bashrc", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/home/*/.profile", "category": "PS05", "severity": "medium", "recursive": false },
+      { "pattern": "/home/*/.bash_profile", "category": "PS05", "severity": "medium", "recursive": false }
+    ],
+    "gtfo_suid": [
+      "bash",
+      "sh",
+      "dash",
+      "zsh",
+      "ash",
+      "ksh",
+      "busybox",
+      "python",
+      "python3",
+      "perl",
+      "ruby",
+      "php",
+      "lua",
+      "node",
+      "find",
+      "vim",
+      "vi",
+      "nano",
+      "less",
+      "more",
+      "awk",
+      "gawk",
+      "nmap",
+      "env",
+      "tar",
+      "zip",
+      "cp",
+      "mv",
+      "tee",
+      "dd",
+      "socat",
+      "nc",
+      "ncat",
+      "gdb",
+      "strace",
+      "docker",
+      "systemctl",
+      "journalctl",
+      "openssl",
+      "wget",
+      "curl",
+      "rsync",
+      "git",
+      "make"
+    ],
+    "pkg_managers": [
+      "apt",
+      "apt-get",
+      "dpkg",
+      "unattended-upgr",
+      "dnf",
+      "yum",
+      "rpm",
+      "packagekitd",
+      "snapd"
+    ],
+    "priv_groups": [
+      "root",
+      "sudo",
+      "wheel",
+      "admin",
+      "adm",
+      "docker",
+      "lxd",
+      "disk",
+      "shadow"
+    ]
+  },
+  "rules": [
+    {
+      "id": "PS04-SUDO-CHMOD-SUID",
+      "title": "Sudo chmod adding setuid or setgid bit",
+      "status": "stable",
+      "description": "Detects sudo commands that grant setuid or setgid permissions to a binary.",
+      "category": "PS04",
+      "level": "medium",
+      "mitre": ["T1548.001", "T1548.003"],
+      "tags": ["attack.t1548.001", "attack.t1548.003"],
+      "source": "log",
+      "match": {
+        "all": [
+          { "field": "log.ident", "equals": ["sudo"] },
+          {
+            "field": "process.cmdline",
+            "regex": ["chmod\\s+(?:[ugoa]*\\+[rwx]*s|[0-7]?[2467][0-7]{3}\\b)"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "PS04-SUDO-REVSHELL",
+      "title": "Sudo command spawning a network shell",
+      "status": "stable",
+      "description": "Detects sudo commands using /dev/tcp, nc -e, or socat exec.",
+      "category": "PS04",
+      "level": "medium",
+      "mitre": ["T1548.003", "T1059.004"],
+      "tags": ["attack.t1548.003", "attack.t1059.004"],
+      "source": "log",
+      "match": {
+        "all": [
+          { "field": "log.ident", "equals": ["sudo"] },
+          {
+            "field": "process.cmdline",
+            "regex": ["/dev/tcp/|\\bnc(?:at)?\\s+.*-e\\s|\\bsocat\\b.*exec:"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "PS04-SUDO-PIPE-SHELL",
+      "title": "Sudo curl or wget piped to shell",
+      "status": "stable",
+      "description": "Detects sudo execution of remote shell scripts fetched with curl or wget.",
+      "category": "PS04",
+      "level": "medium",
+      "mitre": ["T1548.003", "T1059.004"],
+      "tags": ["attack.t1548.003", "attack.t1059.004"],
+      "source": "log",
+      "match": {
+        "all": [
+          { "field": "log.ident", "equals": ["sudo"] },
+          {
+            "field": "process.cmdline",
+            "regex": ["\\b(?:curl|wget)\\b[^|]*\\|\\s*(?:sudo\\s+)?(?:ba|da|z)?sh\\b"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "PS04-SUDO-BASE64-SHELL",
+      "title": "Sudo base64 decode piped to shell",
+      "status": "stable",
+      "description": "Detects obfuscated command execution via base64 -d piped into a shell under sudo.",
+      "category": "PS04",
+      "level": "medium",
+      "mitre": ["T1548.003", "T1027"],
+      "tags": ["attack.t1548.003", "attack.t1027"],
+      "source": "log",
+      "match": {
+        "all": [
+          { "field": "log.ident", "equals": ["sudo"] },
+          {
+            "field": "process.cmdline",
+            "regex": ["base64\\s+(?:-d|--decode)[^|]*\\|\\s*(?:ba|da)?sh\\b"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "PS04-SUDO-PRIV-GROUP",
+      "title": "Sudo usermod adding account to privileged group",
+      "status": "stable",
+      "description": "Detects sudo usermod granting membership in sudo, wheel, docker or admin groups.",
+      "category": "PS04",
+      "level": "medium",
+      "mitre": ["T1548.003", "T1098"],
+      "tags": ["attack.t1548.003", "attack.t1098"],
+      "source": "log",
+      "match": {
+        "all": [
+          { "field": "log.ident", "equals": ["sudo"] },
+          {
+            "field": "process.cmdline",
+            "regex": ["\\busermod\\s+.*-a?G\\s*(?:sudo|wheel|docker|admin)\\b"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "PS04-SUDO-UID0-USERADD",
+      "title": "Sudo creation of UID 0 account",
+      "status": "stable",
+      "description": "Detects sudo useradd or adduser creating a root-equivalent UID 0 account.",
+      "category": "PS04",
+      "level": "medium",
+      "mitre": ["T1548.003", "T1136.001"],
+      "tags": ["attack.t1548.003", "attack.t1136.001"],
+      "source": "log",
+      "match": {
+        "all": [
+          { "field": "log.ident", "equals": ["sudo"] },
+          {
+            "field": "process.cmdline",
+            "regex": ["\\b(?:useradd|adduser)\\b.*(?:-o\\b|-u\\s*0\\b)"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "PS04-SUDO-CRITICAL-AUTH-FILE",
+      "title": "Sudo direct modification of authentication or preload file",
+      "status": "stable",
+      "description": "Detects sudo commands targeting /etc/sudoers, /etc/shadow, /etc/passwd or /etc/ld.so.preload.",
+      "category": "PS04",
+      "level": "medium",
+      "mitre": ["T1548.003", "T1556"],
+      "tags": ["attack.t1548.003", "attack.t1556"],
+      "source": "log",
+      "match": {
+        "all": [
+          { "field": "log.ident", "equals": ["sudo"] },
+          {
+            "field": "process.cmdline",
+            "regex": ["/etc/(?:sudoers|shadow|passwd|ld\\.so\\.preload)"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "PS04-SUDO-SETCAP",
+      "title": "Sudo assignment of Linux file capabilities",
+      "status": "stable",
+      "description": "Detects sudo execution of setcap to grant capabilities to a binary.",
+      "category": "PS04",
+      "level": "medium",
+      "mitre": ["T1548.001"],
+      "tags": ["attack.t1548.001"],
+      "source": "log",
+      "match": {
+        "all": [
+          { "field": "log.ident", "equals": ["sudo"] },
+          {
+            "field": "process.cmdline",
+            "regex": ["\\bsetcap\\b"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "PS06-MINER-KNOWN-NAME",
+      "title": "Known cryptominer process name or binary",
+      "status": "stable",
+      "description": "Detects execution of known cryptocurrency mining binaries such as xmrig, kinsing or kdevtmpfsi.",
+      "category": "PS06",
+      "level": "critical",
+      "mitre": ["T1496"],
+      "tags": ["attack.t1496"],
+      "source": "process",
+      "match": {
+        "any": [
+          {
+            "field": "process.comm",
+            "case_insensitive": true,
+            "contains": [
+              "xmrig", "xmr-stak", "minerd", "cpuminer", "cgminer", "bfgminer",
+              "ccminer", "nbminer", "t-rex", "lolminer", "phoenixminer", "ethminer",
+              "kdevtmpfsi", "kinsing", "srbminer", "teamredminer", "gminer",
+              "nanominer", "xmrminer"
+            ]
+          },
+          {
+            "field": "process.exe",
+            "case_insensitive": true,
+            "contains": [
+              "xmrig", "xmr-stak", "minerd", "cpuminer", "cgminer", "bfgminer",
+              "ccminer", "nbminer", "t-rex", "lolminer", "phoenixminer", "ethminer",
+              "kdevtmpfsi", "kinsing", "srbminer", "teamredminer", "gminer",
+              "nanominer", "xmrminer"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "PS06-MINER-STRATUM-ARGS",
+      "title": "Cryptominer Stratum pool or RandomX command-line flags",
+      "status": "stable",
+      "description": "Detects processes passed Stratum protocol URIs or Monero RandomX mining flags.",
+      "category": "PS06",
+      "level": "critical",
+      "mitre": ["T1496"],
+      "tags": ["attack.t1496"],
+      "source": "process",
+      "match": {
+        "all": [
+          {
+            "field": "process.cmdline",
+            "case_insensitive": true,
+            "contains": [
+              "stratum+tcp://", "stratum+ssl://", "stratum+tls://", "stratum2+tcp://",
+              "--donate-level", "--randomx", "-a rx/0", "--algo=rx",
+              "--coin=monero", "--cpu-max-threads-hint"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

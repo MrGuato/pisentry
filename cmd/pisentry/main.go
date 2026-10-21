@@ -27,6 +27,7 @@ import (
 	"github.com/MrGuato/pisentry/internal/event"
 	"github.com/MrGuato/pisentry/internal/metrics"
 	"github.com/MrGuato/pisentry/internal/report"
+	"github.com/MrGuato/pisentry/internal/rules"
 	"github.com/MrGuato/pisentry/internal/state"
 )
 
@@ -44,6 +45,7 @@ Usage:
   pisentry audit      [-config FILE] [-json]         one-shot posture audit (exit 2 on high/critical)
   pisentry baseline   reset [-config FILE]           re-learn FIM/listener/SUID baselines
   pisentry test-alert [-config FILE]                 send a test webhook alert
+  pisentry check      [-config FILE] [-rules DIR]    validate rule bundles (exit 1 on error)
   pisentry categories                                print the Top 10 catalog
   pisentry version
 `, version)
@@ -67,6 +69,8 @@ func main() {
 		err = cmdBaseline(os.Args[2:])
 	case "test-alert":
 		err = cmdTestAlert(os.Args[2:])
+	case "check":
+		err = cmdCheck(os.Args[2:])
 	case "categories":
 		for _, c := range event.Catalog {
 			fmt.Printf("%s  %-24s %-28s %s\n", c.ID, c.Name, fmt.Sprint(c.MITRE), c.Description)
@@ -145,7 +149,7 @@ func cmdRun(args []string) error {
 		log.Info("alerts enabled", "type", cfg.Alerts.Type, "min_severity", cfg.Alerts.MinSeverity.String())
 	}
 
-	d := detect.Deps{Cfg: cfg, Emit: eng, Store: store, M: m, Log: log}
+	d := detect.Deps{Cfg: cfg, Emit: eng, Store: store, M: m, Log: log, Rules: loadRules(cfg, log)}
 	log.Info("pisentry starting", "version", version, "host", host, "host_root", cfg.HostRoot,
 		"state", cfg.StateDir, "learning_period", cfg.LearningPeriod.Duration.String())
 
@@ -307,6 +311,46 @@ func cmdAudit(args []string) (int, error) {
 		}
 	}
 	return 0, nil
+}
+
+// loadRules loads the built-in rules plus any bundles in rules.dir. A broken
+// operator bundle must not take detection down with it, so on error the agent
+// logs loudly and runs on the built-in rules. `pisentry check` catches the
+// same error before a restart.
+func loadRules(cfg *config.Config, log *slog.Logger) *rules.Engine {
+	re, err := rules.LoadOrDefault(cfg.Rules.Dir)
+	if err != nil {
+		log.Error("rules.d rejected; running on built-in rules only", "dir", cfg.Rules.Dir, "err", err)
+		re = rules.Default()
+	}
+	log.Info("rules loaded", "rules", len(re.Rules()), "dir", cfg.Rules.Dir)
+	return re
+}
+
+// cmdCheck validates rule bundles and exits non-zero on the first error,
+// naming the file and field. With no -rules flag it checks rules.dir from the
+// config, merged over the built-in rules exactly as the agent would load it.
+func cmdCheck(args []string) error {
+	fs := flag.NewFlagSet("check", flag.ExitOnError)
+	dir := fs.String("rules", "", "rule file or directory to validate (default: rules.dir from the config)")
+	cfg, err := loadConfig(fs, args)
+	if err != nil {
+		return err
+	}
+	if *dir != "" {
+		re, err := rules.ValidatePath(*dir)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("ok: %s, %d rules\n", *dir, len(re.Rules()))
+		return nil
+	}
+	re, err := rules.LoadOrDefault(cfg.Rules.Dir)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("ok: built-in rules plus %s, %d rules\n", cfg.Rules.Dir, len(re.Rules()))
+	return nil
 }
 
 func cmdBaseline(args []string) error {

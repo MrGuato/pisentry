@@ -13,11 +13,13 @@ import (
 	"github.com/MrGuato/pisentry/internal/state"
 )
 
-// Ports that are almost never legitimate on a Pi and are classic backdoor or
-// cleartext-auth defaults.
-var backdoorPorts = map[int]string{
-	23: "telnet", 1337: "backdoor", 4444: "metasploit default", 5554: "backdoor",
-	6666: "irc/backdoor", 6667: "irc", 12345: "netbus", 31337: "back orifice", 54321: "backdoor",
+func (l *Listeners) backdoorNote(port int) (string, bool) {
+	for _, bp := range l.d.rules().Catalog().BackdoorPorts {
+		if bp.Port == port {
+			return bp.Note, true
+		}
+	}
+	return "", false
 }
 
 // Listeners covers PS07 by diffing the host's listening sockets against a
@@ -177,7 +179,7 @@ func (l *Listeners) Scan() error {
 		fields := map[string]string{
 			"proto": lk.sock.Proto, "bind": lk.sock.Local.Addr().String(), "port": strconv.Itoa(port),
 		}
-		if why, bad := backdoorPorts[port]; bad && lk.class != "loopback" {
+		if why, bad := l.backdoorNote(port); bad && lk.class != "loopback" {
 			sev = event.Critical
 			fields["port_note"] = why
 		}
