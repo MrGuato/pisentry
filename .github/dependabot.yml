@@ -6,6 +6,11 @@ updates:
     schedule:
       interval: weekly
     labels: [ci]
+    # One PR per week for all actions. main requires branches to be up to date,
+    # so separate PRs each go stale the moment another one merges.
+    groups:
+      actions:
+        patterns: ["*"]
 
   # Base images in the Dockerfile are pinned by digest.
   - package-ecosystem: docker
