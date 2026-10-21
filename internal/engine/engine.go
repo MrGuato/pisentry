@@ -50,19 +50,55 @@ func New(cfg *config.Config, host string, store *state.Store, m *metrics.Set) *E
 
 func (e *Engine) AddSink(s Sink) { e.sinks = append(e.sinks, s) }
 
+// SanitizeEvent neutralizes and bounds all untrusted strings on an event in place.
+func SanitizeEvent(ev *event.Event) {
+	ev.Summary = Truncate(ev.Summary, 400)
+	for k, v := range ev.Fields {
+		ev.Fields[k] = Truncate(v, 512)
+	}
+	if p := ev.Process; p != nil {
+		p.Comm = Truncate(p.Comm, 128)
+		p.Exe = Truncate(p.Exe, 512)
+		p.Cmdline = Truncate(p.Cmdline, 512)
+	}
+	if s := ev.Source; s != nil {
+		s.IP = Truncate(s.IP, 128)
+	}
+	if u := ev.User; u != nil {
+		u.Name = Truncate(u.Name, 128)
+	}
+	if f := ev.File; f != nil {
+		f.Path = Truncate(f.Path, 512)
+		f.HashBefore = Truncate(f.HashBefore, 128)
+		f.HashAfter = Truncate(f.HashAfter, 128)
+	}
+	if c := ev.Container; c != nil {
+		c.ID = Truncate(c.ID, 128)
+		c.Pod = Truncate(c.Pod, 256)
+		c.Namespace = Truncate(c.Namespace, 128)
+	}
+	if r := ev.Rule; r != nil {
+		r.ID = Truncate(r.ID, 128)
+		r.Title = Truncate(r.Title, 256)
+	}
+}
+
 // Emit enriches the event, applies the cooldown and dispatches it.
 func (e *Engine) Emit(ev event.Event) {
 	now := e.Now().UTC()
 	if ev.Time.IsZero() {
 		ev.Time = now
 	}
+	if ev.SchemaVersion == 0 {
+		ev.SchemaVersion = event.SchemaVersion
+	}
+	if ev.ID == "" {
+		ev.ID = event.NewID()
+	}
 	ev.Host = e.host
 	// One choke point for attacker-influenced strings (usernames, process
 	// names, paths, cmdlines) before they reach JSON, webhooks or a terminal.
-	ev.Summary = Truncate(ev.Summary, 400)
-	for k, v := range ev.Fields {
-		ev.Fields[k] = Truncate(v, 512)
-	}
+	SanitizeEvent(&ev)
 	ci := event.Lookup(ev.Category)
 	ev.CategoryName = ci.Name
 	if len(ev.MITRE) == 0 {

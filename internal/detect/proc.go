@@ -213,13 +213,27 @@ func (p *ProcWatch) checkRevShell(nc *netCache, id string, pid int, st procfs.Pr
 			return
 		}
 		p.flagged["rev|"+id] = true
-		p.d.Emit.Emit(event.Event{
+		uid := procfs.UID(p.d.Cfg.ProcRoot, pid)
+		var uidPtr *int
+		var ue *event.UserEntity
+		if uid >= 0 {
+			uidPtr = event.IntPtr(uid)
+			ue = &event.UserEntity{UID: uidPtr}
+		}
+		truncCmd := engine.Truncate(cmd, 300)
+		p.d.emit(event.Event{
 			Category: event.ReverseShell, Severity: event.Critical, Detector: "proc", Key: id,
 			Summary: fmt.Sprintf("Reverse shell: %s (pid %d) has fd %d connected to %s", st.Comm, pid, fd, s.Remote),
+			Process: &event.ProcessEntity{
+				PID: pid, PPID: st.PPID, StartTime: st.StartTime, UID: uidPtr,
+				Comm: st.Comm, Exe: exe, Cmdline: truncCmd,
+			},
+			Source: &event.SourceEntity{IP: s.Remote.Addr().String(), Port: int(s.Remote.Port())},
+			User:   ue,
 			Fields: map[string]string{
 				"pid": strconv.Itoa(pid), "ppid": strconv.Itoa(st.PPID), "comm": st.Comm, "exe": exe,
-				"cmdline": engine.Truncate(cmd, 300), "remote": s.Remote.String(), "local": s.Local.String(),
-				"fd": strconv.Itoa(fd), "uid": strconv.Itoa(procfs.UID(p.d.Cfg.ProcRoot, pid)),
+				"cmdline": truncCmd, "remote": s.Remote.String(), "local": s.Local.String(),
+				"fd": strconv.Itoa(fd), "uid": strconv.Itoa(uid),
 				"parent": parentComm(p.d.Cfg.ProcRoot, st.PPID),
 			},
 		})
@@ -240,13 +254,26 @@ func (p *ProcWatch) emitMiner(id string, sev event.Severity, pid int, st procfs.
 		return
 	}
 	p.flagged["miner|"+id] = true
-	p.d.Emit.Emit(event.Event{
+	uid := procfs.UID(p.d.Cfg.ProcRoot, pid)
+	var uidPtr *int
+	var ue *event.UserEntity
+	if uid >= 0 {
+		uidPtr = event.IntPtr(uid)
+		ue = &event.UserEntity{UID: uidPtr}
+	}
+	truncCmd := engine.Truncate(cmd, 300)
+	p.d.emit(event.Event{
 		Category: event.Cryptominer, Severity: sev, Detector: "proc", Key: id,
 		Summary: fmt.Sprintf("Possible cryptominer %s (pid %d): %s", st.Comm, pid, why),
+		Process: &event.ProcessEntity{
+			PID: pid, PPID: st.PPID, StartTime: st.StartTime, UID: uidPtr,
+			Comm: st.Comm, Exe: exe, Cmdline: truncCmd,
+		},
+		User: ue,
 		Fields: map[string]string{
-			"pid": strconv.Itoa(pid), "comm": st.Comm, "exe": exe, "cmdline": engine.Truncate(cmd, 300),
+			"pid": strconv.Itoa(pid), "comm": st.Comm, "exe": exe, "cmdline": truncCmd,
 			"cpu_percent": strconv.FormatFloat(cpu, 'f', 0, 64), "reason": why,
-			"uid": strconv.Itoa(procfs.UID(p.d.Cfg.ProcRoot, pid)),
+			"uid": strconv.Itoa(uid),
 		},
 	})
 }

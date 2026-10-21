@@ -6,6 +6,10 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 
 ### Added
 
+- Event Schema v1 (`docs/event-schema.json`, `docs/event-schema.md`): every event now carries `id` (UUIDv4), `schema_version` (`1`), and typed entity groups (`process`, `source`, `user`, `file`, `container`, `rule`), with OCSF and ECS mapping tables
+- Release images are signed with cosign keyless signing by digest, and `SHA256SUMS` ships with a Sigstore bundle (`SHA256SUMS.sigstore.json`, requires cosign 3.0 or later). Verification steps are in SECURITY.md
+- OpenSSF Scorecard workflow: weekly and on every push to main, results published to scorecard.dev and uploaded to code scanning. Badge in the README
+- CodeQL analysis for Go on every push to main, every pull request and weekly, with results in code scanning. Badge in the README
 - Container-based attack simulation (`make sim`, `scripts/sim-container/`): runs the agent in a `python:3-slim` container with file-mode logs and short detector intervals, fires harmless stand-ins for the eight simulatable categories, writes `events.jsonl`, `report.json`, `metrics.txt` and `top10.json`, and exits non-zero unless all eight fired. Proves detectors without root on a real host
 - `docs/assets/grafana-top10.png`: the bundled Grafana dashboard rendered from the container simulation
 - Project website at https://mrguato.github.io/pisentry/ (`site/`), built by `scripts/build-site.py` and published by the `pages` workflow. The roadmap and the live numbers are rendered from the GitHub API at build time, so the pages make no requests of their own and rebuild when a milestone or a roadmap issue changes
@@ -18,6 +22,10 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 - DaemonSet liveness probe: timeout 1s -> 5s, failureThreshold 3 -> 5, so a slow SD card does not get the agent killed
 - README and website state the new cap, and the FAQ describes the v0.1.0 restart loop on a control-plane Pi
 - Kubernetes manifests pin the image by release digest instead of by tag, and the staging overlay comment shows a digest override
+
+### Deprecated
+
+- `v0.1.0` entity keys inside `fields` (`pid`, `ppid`, `comm`, `exe`, `cmdline`, `command`, `src_ip`, `port`, `user`, `uid`, `owner_uid`, `path`, `old_sha256`, `sha256`, `check`) are superseded by the typed entity groups (`process.*`, `source.*`, `user.*`, `file.*`, `rule.*`). They remain populated in `fields` through `v0.2.x` and will be removed in `v0.3.0`
 
 ## [0.1.0] - 2026-10-15
 

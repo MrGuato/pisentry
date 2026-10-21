@@ -133,6 +133,38 @@ with open(sys.argv[2], "wb") as f:
 PY
 }
 
+validate_schema() {
+  python3 - "$OUT/events.jsonl" <<'PY'
+import json, re, sys
+
+REQUIRED = {"id", "schema_version", "time", "host", "category", "category_name", "severity", "detector", "summary"}
+ALLOWED = REQUIRED | {"mitre", "key", "process", "source", "user", "file", "container", "rule", "fields"}
+SEVS = {"info", "low", "medium", "high", "critical"}
+
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    lines = [l.strip() for l in f if l.strip()]
+
+if not lines:
+    print("[sim] FAIL: events.jsonl is empty", file=sys.stderr)
+    raise SystemExit(1)
+
+for i, line in enumerate(lines, 1):
+    ev = json.loads(line)
+    missing = REQUIRED - set(ev.keys())
+    extra = set(ev.keys()) - ALLOWED
+    if missing or extra:
+        print(f"[sim] FAIL: event {i} schema keys mismatch: missing={missing} extra={extra}", file=sys.stderr)
+        raise SystemExit(1)
+    if ev["schema_version"] != 1 or not re.match(r"^[0-9a-f-]{16,64}$", ev["id"]):
+        print(f"[sim] FAIL: event {i} invalid id/schema_version", file=sys.stderr)
+        raise SystemExit(1)
+    if ev["severity"] not in SEVS or not re.match(r"^PS[0-9]{2}$", ev["category"]):
+        print(f"[sim] FAIL: event {i} invalid severity/category", file=sys.stderr)
+        raise SystemExit(1)
+print(f"[sim] schema v1 validated: {len(lines)} events")
+PY
+}
+
 collect() {
   "$BIN" report -config "$CFG" -since 10m -json >"$OUT/report.json" 2>>"$OUT/agent.log" || true
   fetch "${API}/metrics" "$OUT/metrics.txt" || true
@@ -186,6 +218,7 @@ inside_main() {
   fi
 
   cleanup_inside
+  validate_schema || return 1
   if [ "${n}" -lt 8 ]; then
     echo "[sim] FAIL: fewer than 8 categories fired" >&2
     return 1

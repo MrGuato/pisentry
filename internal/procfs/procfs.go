@@ -280,9 +280,12 @@ func SocketInodes(procRoot string, pid int) []uint64 {
 
 // Owner identifies the process holding a socket.
 type Owner struct {
-	PID  int
-	Comm string
-	Exe  string
+	PID       int
+	PPID      int
+	StartTime uint64
+	Comm      string
+	Exe       string
+	Cmdline   string
 }
 
 // InodeOwners scans every process's fds and maps the wanted inodes to owners.
@@ -300,7 +303,10 @@ func InodeOwners(procRoot string, want map[uint64]bool) map[uint64]Owner {
 					continue
 				}
 				st, _ := ReadStat(procRoot, pid)
-				out[ino] = Owner{PID: pid, Comm: st.Comm, Exe: Exe(procRoot, pid)}
+				out[ino] = Owner{
+					PID: pid, PPID: st.PPID, StartTime: st.StartTime,
+					Comm: st.Comm, Exe: Exe(procRoot, pid), Cmdline: Cmdline(procRoot, pid),
+				}
 			}
 		}
 		if len(out) == len(want) {
