@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    pi : TTY=pts/0 ; PWD=/home/pi ; USER=root ; COMMAND=/bin/sh -c base64 --decode /tmp/.p | sh",
+  "user": {
+    "name": "pi"
+  },
+  "process": {
+    "cmdline": "/bin/sh -c base64 --decode /tmp/.p | sh"
+  }
+}

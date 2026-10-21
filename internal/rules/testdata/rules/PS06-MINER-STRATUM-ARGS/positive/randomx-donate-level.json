@@ -1,0 +1,11 @@
+{
+  "source": "process",
+  "process": {
+    "pid": 4244,
+    "ppid": 1,
+    "comm": "python3",
+    "exe": "/usr/bin/python3",
+    "cmdline": "python3 /tmp/m.py --donate-level 1 --algo=rx/0",
+    "uid": 1000
+  }
+}

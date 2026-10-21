@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    pi : TTY=pts/0 ; PWD=/home/pi ; USER=root ; COMMAND=/bin/sh -c echo YmFzaCAtaQ== | base64 -d | bash",
+  "user": {
+    "name": "pi"
+  },
+  "process": {
+    "cmdline": "/bin/sh -c echo YmFzaCAtaQ== | base64 -d | bash"
+  }
+}

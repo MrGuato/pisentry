@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    pi : TTY=pts/0 ; PWD=/home/pi ; USER=root ; COMMAND=/usr/bin/tee /etc/sudoers.d/90-backdoor",
+  "user": {
+    "name": "pi"
+  },
+  "process": {
+    "cmdline": "/usr/bin/tee /etc/sudoers.d/90-backdoor"
+  }
+}

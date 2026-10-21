@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    jon : TTY=pts/0 ; PWD=/home/jon ; USER=root ; COMMAND=/bin/sh -c base64 -d /tmp/kubeconfig.b64 > /etc/rancher/k3s/k3s.yaml",
+  "user": {
+    "name": "jon"
+  },
+  "process": {
+    "cmdline": "/bin/sh -c base64 -d /tmp/kubeconfig.b64 > /etc/rancher/k3s/k3s.yaml"
+  }
+}

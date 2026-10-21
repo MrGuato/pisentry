@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    pi : TTY=pts/0 ; PWD=/home/pi ; USER=root ; COMMAND=/usr/sbin/useradd -u 0 toor",
+  "user": {
+    "name": "pi"
+  },
+  "process": {
+    "cmdline": "/usr/sbin/useradd -u 0 toor"
+  }
+}

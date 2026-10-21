@@ -29,6 +29,12 @@ docker run --rm -v "$PWD":/src -w /src golang:1.27-alpine sh -c 'gofmt -l . && g
 
 CI runs the same steps plus `govulncheck`, on x86 and on a native arm64 runner.
 
+## Adding or changing a rule
+
+Rules live in `deploy/rules/default.json`; copy it over `internal/rules/default.json` after editing (a test fails if they drift). The format is in [docs/rule-schema.md](docs/rule-schema.md).
+
+Every rule needs at least one fixture it fires on and one it stays quiet on, in `internal/rules/testdata/rules/<rule-id>/positive/` and `negative/`. Take negatives from normal activity on a real box (apt upgrades, k3s pod churn, cron, backups) with hostnames, users and addresses scrubbed. `go test ./internal/rules/...` replays them and fails when either kind is missing.
+
 ## Proving a detector on a real host
 
 After the learning period, `sudo ./scripts/simulate-attacks.sh` fires harmless stand-ins for eight categories and cleans up after itself.

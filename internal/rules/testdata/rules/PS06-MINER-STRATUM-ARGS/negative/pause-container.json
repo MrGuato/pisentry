@@ -1,0 +1,11 @@
+{
+  "source": "process",
+  "process": {
+    "pid": 7003,
+    "ppid": 1,
+    "comm": "pause",
+    "exe": "/pause",
+    "cmdline": "/pause",
+    "uid": 65535
+  }
+}

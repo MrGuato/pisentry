@@ -1,0 +1,11 @@
+{
+  "source": "process",
+  "process": {
+    "pid": 2210,
+    "ppid": 1,
+    "comm": "prometheus",
+    "exe": "/bin/prometheus",
+    "cmdline": "/bin/prometheus --config.file=/etc/prometheus/prometheus.yml",
+    "uid": 65534
+  }
+}

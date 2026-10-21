@@ -1,0 +1,11 @@
+{
+  "source": "process",
+  "process": {
+    "pid": 640,
+    "ppid": 1,
+    "comm": "k3s-server",
+    "exe": "/usr/local/bin/k3s",
+    "cmdline": "/usr/local/bin/k3s server",
+    "uid": 0
+  }
+}

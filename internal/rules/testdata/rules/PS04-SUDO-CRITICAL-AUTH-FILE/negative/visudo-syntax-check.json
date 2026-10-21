@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    jon : TTY=pts/0 ; PWD=/home/jon ; USER=root ; COMMAND=/usr/sbin/visudo -c",
+  "user": {
+    "name": "jon"
+  },
+  "process": {
+    "cmdline": "/usr/sbin/visudo -c"
+  }
+}

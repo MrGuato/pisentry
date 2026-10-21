@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    jon : TTY=pts/0 ; PWD=/home/jon ; USER=root ; COMMAND=/bin/sh -c wget -qO- https://example.org/key.gpg | tee /etc/apt/keyrings/example.gpg",
+  "user": {
+    "name": "jon"
+  },
+  "process": {
+    "cmdline": "/bin/sh -c wget -qO- https://example.org/key.gpg | tee /etc/apt/keyrings/example.gpg"
+  }
+}
