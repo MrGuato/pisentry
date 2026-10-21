@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mrguato.github.io/pisentry/event-schema.json",
+  "title": "pisentry Event Schema v1",
+  "description": "JSON Schema for security events emitted by pisentry (schema_version 1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "schema_version",
+    "time",
+    "host",
+    "category",
+    "category_name",
+    "severity",
+    "detector",
+    "summary"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f-]+$",
+      "description": "Unique identifier for this event instance (UUIDv4)."
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Event schema contract version."
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 UTC timestamp when the event was recorded."
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Hostname or Kubernetes node name."
+    },
+    "category": {
+      "type": "string",
+      "pattern": "^PS[0-9]{2}$",
+      "description": "Top 10 category identifier (PS01-PS10) or operational category (PS00)."
+    },
+    "category_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Human-readable category name."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"],
+      "description": "Ordered event severity."
+    },
+    "mitre": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"
+      },
+      "description": "MITRE ATT&CK technique IDs."
+    },
+    "detector": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Subsystem that emitted the event (auth, portscan, fim, listeners, proc, suid, audit, rules, test)."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 403,
+      "description": "Sanitized human-readable summary of the finding."
+    },
+    "key": {
+      "type": "string",
+      "maxLength": 512,
+      "description": "Deduplication and cooldown key within the category."
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Process entity involved in the event.",
+      "properties": {
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ppid": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "start_time": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Process start time in clock ticks since boot (/proc/[pid]/stat field 22)."
+        },
+        "uid": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Real user ID of the process."
+        },
+        "comm": {
+          "type": "string",
+          "maxLength": 131
+        },
+        "exe": {
+          "type": "string",
+          "maxLength": 515
+        },
+        "cmdline": {
+          "type": "string",
+          "maxLength": 515
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Network source or bound/remote endpoint.",
+      "properties": {
+        "ip": {
+          "type": "string",
+          "maxLength": 131
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        }
+      }
+    },
+    "user": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "User account involved in the event.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 131
+        },
+        "uid": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "File path and hashes involved in the event.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 515
+        },
+        "hash_before": {
+          "type": "string",
+          "maxLength": 131
+        },
+        "hash_after": {
+          "type": "string",
+          "maxLength": 131
+        }
+      }
+    },
+    "container": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Container and Kubernetes pod metadata when applicable.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 131
+        },
+        "pod": {
+          "type": "string",
+          "maxLength": 259
+        },
+        "namespace": {
+          "type": "string",
+          "maxLength": 131
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Detection rule or posture audit check that produced the event.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 131
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 259
+        }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 515
+      },
+      "description": "Detector-specific string annotations and deprecated v0.1 compatibility keys."
+    }
+  }
+}

@@ -80,7 +80,8 @@ func (a *Auth) handleSSH(l logsrc.Line) {
 	msg := l.Msg
 	now := a.d.now()
 	if m := reAccepted.FindStringSubmatch(msg); m != nil {
-		a.success(now, m[1], m[2], m[3])
+		port, _ := strconv.Atoi(m[4])
+		a.success(now, m[1], m[2], m[3], port)
 		return
 	}
 	if m := reInvalid.FindStringSubmatch(msg); m != nil {
@@ -89,7 +90,8 @@ func (a *Auth) handleSSH(l logsrc.Line) {
 			a.invalidSeen[m[2]+":"+m[3]] = now
 		}
 		a.mu.Unlock()
-		a.fail(now, m[2], m[1], true)
+		port, _ := strconv.Atoi(m[3])
+		a.fail(now, m[2], port, m[1], true)
 		return
 	}
 	if m := reFailed.FindStringSubmatch(msg); m != nil {
@@ -102,15 +104,18 @@ func (a *Auth) handleSSH(l logsrc.Line) {
 				return
 			}
 		}
-		a.fail(now, m[4], m[3], m[2] != "")
+		port, _ := strconv.Atoi(m[5])
+		a.fail(now, m[4], port, m[3], m[2] != "")
 		return
 	}
 	if m := reClosedAuth.FindStringSubmatch(msg); m != nil {
-		a.fail(now, m[2], m[1], false)
+		port, _ := strconv.Atoi(m[3])
+		a.fail(now, m[2], port, m[1], false)
 		return
 	}
 	if m := reMaxAuth.FindStringSubmatch(msg); m != nil {
-		a.fail(now, m[3], m[2], m[1] != "")
+		port, _ := strconv.Atoi(m[4])
+		a.fail(now, m[3], port, m[2], m[1] != "")
 	}
 }
 
@@ -137,7 +142,7 @@ func validIP(ip string) bool {
 	return err == nil
 }
 
-func (a *Auth) fail(now time.Time, ip, user string, invalid bool) {
+func (a *Auth) fail(now time.Time, ip string, port int, user string, invalid bool) {
 	a.d.M.SSHFailures.Inc()
 	if !validIP(ip) {
 		return
@@ -179,9 +184,11 @@ func (a *Auth) fail(now time.Time, ip, user string, invalid bool) {
 	default:
 		return
 	}
-	a.d.Emit.Emit(event.Event{
+	a.d.emit(event.Event{
 		Category: event.SSHBruteForce, Severity: sev, Detector: "auth", Key: key,
 		Summary: fmt.Sprintf("SSH brute force from %s: %d failed attempts in %s", ip, n, event.Dur(cfg.FailWindow.Duration)),
+		Source:  &event.SourceEntity{IP: ip, Port: port},
+		User:    userEntity(engine.Truncate(user, 64)),
 		Fields: map[string]string{
 			"src_ip": ip, "failures": strconv.Itoa(n), "window": event.Dur(cfg.FailWindow.Duration),
 			"users": engine.Truncate(strings.Join(users, ","), 200),
@@ -240,7 +247,7 @@ func sortedKeys(m map[string]bool, max int) []string {
 	return out
 }
 
-func (a *Auth) success(now time.Time, method, user, ip string) {
+func (a *Auth) success(now time.Time, method, user, ip string, port int) {
 	cfg := a.d.Cfg.SSH
 	if !validIP(ip) {
 		return
@@ -278,9 +285,11 @@ func (a *Auth) success(now time.Time, method, user, ip string) {
 	if sev == event.Info {
 		return
 	}
-	a.d.Emit.Emit(event.Event{
+	a.d.emit(event.Event{
 		Category: event.SuspiciousLogin, Severity: sev, Detector: "auth", Key: user + "|" + ip,
 		Summary: fmt.Sprintf("SSH login as %s from %s (%s): %s", user, ip, method, strings.Join(reasons, "; ")),
+		Source:  &event.SourceEntity{IP: ip, Port: port},
+		User:    userEntity(engine.Truncate(user, 64)),
 		Fields: map[string]string{
 			"user": engine.Truncate(user, 64), "src_ip": ip, "method": method,
 			"recent_failures": strconv.Itoa(recent),
@@ -291,17 +300,19 @@ func (a *Auth) success(now time.Time, method, user, ip string) {
 func (a *Auth) handleSudo(l logsrc.Line) {
 	msg := l.Msg
 	if m := reSudoNotIn.FindStringSubmatch(msg); m != nil {
-		a.d.Emit.Emit(event.Event{
+		a.d.emit(event.Event{
 			Category: event.PrivEsc, Severity: event.High, Detector: "auth", Key: "sudo-denied|" + m[1],
 			Summary: fmt.Sprintf("User %s tried sudo but is not in sudoers", m[1]),
+			User:    userEntity(m[1]),
 			Fields:  map[string]string{"user": m[1], "log": engine.Truncate(msg, 300)},
 		})
 		return
 	}
 	if m := reSudoIncorrect.FindStringSubmatch(msg); m != nil {
-		a.d.Emit.Emit(event.Event{
+		a.d.emit(event.Event{
 			Category: event.PrivEsc, Severity: event.Medium, Detector: "auth", Key: "sudo-badpw|" + m[1],
 			Summary: fmt.Sprintf("User %s failed the sudo password %s times", m[1], m[2]),
+			User:    userEntity(m[1]),
 			Fields:  map[string]string{"user": m[1], "attempts": m[2]},
 		})
 		return
@@ -309,12 +320,15 @@ func (a *Auth) handleSudo(l logsrc.Line) {
 	if m := reSudoCmd.FindStringSubmatch(msg); m != nil {
 		for _, re := range riskySudo {
 			if re.MatchString(m[3]) {
-				a.d.Emit.Emit(event.Event{
+				cmd := engine.Truncate(m[3], 300)
+				a.d.emit(event.Event{
 					Category: event.PrivEsc, Severity: event.Medium, Detector: "auth",
 					Key:     "sudo-risky|" + m[1] + "|" + m[3],
 					Summary: fmt.Sprintf("Risky command via sudo by %s as %s", m[1], m[2]),
+					User:    userEntity(m[1]),
+					Process: &event.ProcessEntity{Cmdline: cmd},
 					Fields: map[string]string{
-						"user": m[1], "as_user": m[2], "command": engine.Truncate(m[3], 300),
+						"user": m[1], "as_user": m[2], "command": cmd,
 						"pattern": re.String(),
 					},
 				})
@@ -330,9 +344,10 @@ func (a *Auth) handleSu(l logsrc.Line) {
 		return
 	}
 	who := firstNonEmpty(m[2], m[4], m[5], "unknown")
-	a.d.Emit.Emit(event.Event{
+	a.d.emit(event.Event{
 		Category: event.PrivEsc, Severity: event.Medium, Detector: "auth", Key: "su-fail|" + who,
 		Summary: fmt.Sprintf("Failed su attempt by %s", who),
+		User:    userEntity(who),
 		Fields:  map[string]string{"user": who, "log": engine.Truncate(l.Msg, 300)},
 	})
 }

@@ -32,6 +32,24 @@ func (d Deps) now() time.Time {
 	return time.Now()
 }
 
+func (d Deps) emit(ev event.Event) {
+	if ev.SchemaVersion == 0 {
+		ev.SchemaVersion = event.SchemaVersion
+	}
+	if ev.ID == "" {
+		ev.ID = event.NewID()
+	}
+	d.Emit.Emit(ev)
+}
+
+func userEntity(name string) *event.UserEntity {
+	u := &event.UserEntity{Name: name}
+	if name == "root" {
+		u.UID = event.IntPtr(0)
+	}
+	return u
+}
+
 // learning reports whether we are still inside the initial learning period.
 func (d Deps) learning() bool {
 	var created time.Time

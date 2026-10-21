@@ -181,16 +181,28 @@ func (l *Listeners) Scan() error {
 			sev = event.Critical
 			fields["port_note"] = why
 		}
+		var pe *event.ProcessEntity
 		if o, ok := owners[lk.sock.Inode]; ok {
 			fields["pid"], fields["comm"], fields["exe"] = strconv.Itoa(o.PID), o.Comm, o.Exe
+			pe = &event.ProcessEntity{
+				PID:       o.PID,
+				PPID:      o.PPID,
+				StartTime: o.StartTime,
+				UID:       event.IntPtr(lk.sock.UID),
+				Comm:      o.Comm,
+				Exe:       o.Exe,
+				Cmdline:   o.Cmdline,
+			}
 		}
 		who := fields["comm"]
 		if who == "" {
 			who = "unknown process"
 		}
-		l.d.Emit.Emit(event.Event{
+		l.d.emit(event.Event{
 			Category: event.NewListener, Severity: sev, Detector: "listeners", Key: k,
 			Summary: fmt.Sprintf("New %s listener on %s:%d (%s), not in baseline", strings.TrimSuffix(lk.sock.Proto, "6"), lk.sock.Local.Addr(), port, who),
+			Process: pe,
+			Source:  &event.SourceEntity{IP: lk.sock.Local.Addr().String(), Port: port},
 			Fields:  fields,
 		})
 		l.reported[k] = true

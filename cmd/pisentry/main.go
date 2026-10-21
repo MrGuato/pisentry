@@ -341,6 +341,7 @@ func cmdTestAlert(args []string) error {
 		return errors.New("alerts.type is not set in the config")
 	}
 	ev := event.Event{
+		ID: event.NewID(), SchemaVersion: event.SchemaVersion,
 		Time: time.Now().UTC(), Host: cfg.ResolveHostname(), Category: event.SSHBruteForce,
 		CategoryName: "SSH brute force", Severity: event.High, Detector: "test",
 		Summary: "Test alert from pisentry. If you can read this, webhook delivery works.",

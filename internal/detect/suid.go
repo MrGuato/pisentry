@@ -143,9 +143,16 @@ func (s *SUID) Scan() error {
 			summary = fmt.Sprintf("%s binary %s changed (package update or replacement)", bit, p)
 			fields["old_sha256"] = short(old.Hash)
 		}
-		s.d.Emit.Emit(event.Event{
+		s.d.emit(event.Event{
 			Category: event.PrivEsc, Severity: sev, Detector: "suid", Key: p + "|" + sig.Hash,
-			Summary: summary, Fields: fields,
+			Summary: summary,
+			File: &event.FileEntity{
+				Path:       p,
+				HashBefore: short(old.Hash),
+				HashAfter:  short(sig.Hash),
+			},
+			User:   &event.UserEntity{UID: event.IntPtr(sig.UID)},
+			Fields: fields,
 		})
 	}
 	s.d.Store.Update(func(st *state.State) { st.Baselines.SUID = cur })
