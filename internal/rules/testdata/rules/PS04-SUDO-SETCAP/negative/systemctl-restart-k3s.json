@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    jon : TTY=pts/0 ; PWD=/home/jon ; USER=root ; COMMAND=/usr/bin/systemctl restart k3s",
+  "user": {
+    "name": "jon"
+  },
+  "process": {
+    "cmdline": "/usr/bin/systemctl restart k3s"
+  }
+}

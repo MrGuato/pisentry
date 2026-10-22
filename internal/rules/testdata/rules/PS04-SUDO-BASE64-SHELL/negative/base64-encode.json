@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    jon : TTY=pts/0 ; PWD=/home/jon ; USER=root ; COMMAND=/usr/bin/base64 /var/lib/rancher/k3s/server/token",
+  "user": {
+    "name": "jon"
+  },
+  "process": {
+    "cmdline": "/usr/bin/base64 /var/lib/rancher/k3s/server/token"
+  }
+}

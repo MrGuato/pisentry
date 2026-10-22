@@ -1,0 +1,11 @@
+{
+  "source": "process",
+  "process": {
+    "pid": 4242,
+    "ppid": 1,
+    "comm": "xmrig",
+    "exe": "/tmp/.x/xmrig",
+    "cmdline": "./xmrig -c config.json",
+    "uid": 1000
+  }
+}

@@ -53,6 +53,7 @@ type Config struct {
 	Disable  []string `json:"disable"`
 
 	Logs      LogConfig      `json:"logs"`
+	Rules     RulesConfig    `json:"rules"`
 	SSH       SSHConfig      `json:"ssh"`
 	PortScan  PortScanConfig `json:"portscan"`
 	FIM       FIMConfig      `json:"fim"`
@@ -75,6 +76,12 @@ type LogConfig struct {
 	// SSHRequireRoot drops journald sshd records not logged by uid 0, so a
 	// local user cannot forge sshd lines with logger(1). No effect in file mode.
 	SSHRequireRoot bool `json:"ssh_require_root"`
+}
+
+// RulesConfig locates operator rule bundles.
+type RulesConfig struct {
+	// Dir is the directory of JSON rule bundles loaded over the built-in default.json.
+	Dir string `json:"dir"`
 }
 
 type SSHConfig struct {
@@ -114,11 +121,14 @@ type ProcConfig struct {
 	// CPUThreshold is percent of one core (100 = one full core).
 	CPUThreshold float64 `json:"cpu_threshold"`
 	// SustainedPolls of high CPU with no other indicator raises a low-severity event.
-	SustainedPolls int      `json:"sustained_polls"`
-	MinerNames     []string `json:"miner_names"`
-	StratumPorts   []int    `json:"stratum_ports"`
-	AllowComm      []string `json:"allow_comm"`
-	ShellNames     []string `json:"shell_names"`
+	SustainedPolls int `json:"sustained_polls"`
+	// MinerNames is an extra list of miner names matched on top of the
+	// PS06-MINER-* rules. Empty by default; the built-in list is in the rules.
+	MinerNames []string `json:"miner_names"`
+	// StratumPorts and ShellNames replace the rule catalog lists when set.
+	StratumPorts []int    `json:"stratum_ports"`
+	AllowComm    []string `json:"allow_comm"`
+	ShellNames   []string `json:"shell_names"`
 	// RevShellIgnoreLoopback skips shells connected to 127.0.0.1/::1.
 	RevShellIgnoreLoopback bool `json:"revshell_ignore_loopback"`
 }
@@ -161,6 +171,9 @@ func Defaults() Config {
 			SSHRequireRoot: true,
 			Files:          []string{"/var/log/auth.log", "/var/log/secure", "/var/log/kern.log", "/var/log/messages"},
 		},
+		Rules: RulesConfig{
+			Dir: "/etc/pisentry/rules.d",
+		},
 		SSH: SSHConfig{
 			FailThreshold:          5,
 			FailWindow:             D(5 * time.Minute),
@@ -177,20 +190,10 @@ func Defaults() Config {
 			Interval:       D(15 * time.Second),
 			CPUThreshold:   80,
 			SustainedPolls: 40,
-			MinerNames: []string{
-				"xmrig", "xmr-stak", "minerd", "cpuminer", "cgminer", "bfgminer", "ccminer",
-				"nbminer", "t-rex", "lolminer", "phoenixminer", "ethminer", "kdevtmpfsi",
-				"kinsing", "srbminer", "teamredminer", "gminer", "nanominer", "xmrminer",
-			},
-			StratumPorts: []int{3333, 3334, 4444, 5555, 7777, 8888, 9999, 14444, 14433, 45560, 45700},
 			AllowComm: []string{
 				"prometheus", "k3s-server", "k3s-agent", "k3s", "containerd", "kubelet",
 				"grafana", "couchdb", "beam.smp", "apt", "apt-get", "dpkg", "dnf", "rpm",
 				"cc1", "cc1plus", "go", "rustc", "cargo", "gcc", "ld", "make", "unattended-upgr",
-			},
-			ShellNames: []string{
-				"sh", "bash", "dash", "zsh", "ash", "ksh", "mksh", "fish", "busybox",
-				"python", "python2", "python3", "perl", "ruby", "php", "lua", "node",
 			},
 			RevShellIgnoreLoopback: true,
 		},
@@ -236,6 +239,9 @@ func Load(path string) (Config, error) {
 	}
 	if v := os.Getenv("PISENTRY_STATE_DIR"); v != "" {
 		cfg.StateDir = v
+	}
+	if v := os.Getenv("PISENTRY_RULES_DIR"); v != "" {
+		cfg.Rules.Dir = v
 	}
 	// Lets a Kubernetes Secret switch alerts on without patching the ConfigMap.
 	if v := os.Getenv("PISENTRY_ALERT_TYPE"); v != "" {

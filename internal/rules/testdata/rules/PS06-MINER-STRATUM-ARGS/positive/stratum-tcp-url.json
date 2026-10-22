@@ -1,0 +1,11 @@
+{
+  "source": "process",
+  "process": {
+    "pid": 4243,
+    "ppid": 1,
+    "comm": "sysupdate",
+    "exe": "/dev/shm/sysupdate",
+    "cmdline": "sysupdate -o stratum+tcp://pool.example.net:3333 -u 4A... -p x",
+    "uid": 33
+  }
+}

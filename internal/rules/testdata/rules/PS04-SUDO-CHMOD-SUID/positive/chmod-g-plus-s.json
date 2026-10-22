@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    pi : TTY=pts/0 ; PWD=/home/pi ; USER=root ; COMMAND=/bin/chmod g+s /usr/local/bin/helper",
+  "user": {
+    "name": "pi"
+  },
+  "process": {
+    "cmdline": "/bin/chmod g+s /usr/local/bin/helper"
+  }
+}

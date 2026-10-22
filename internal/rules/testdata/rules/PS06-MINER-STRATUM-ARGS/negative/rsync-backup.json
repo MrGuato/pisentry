@@ -1,0 +1,11 @@
+{
+  "source": "process",
+  "process": {
+    "pid": 7001,
+    "ppid": 1,
+    "comm": "rsync",
+    "exe": "/usr/bin/rsync",
+    "cmdline": "rsync -a --delete /var/lib/rancher/k3s/server/db/ backup@nas:/backups/pi/",
+    "uid": 0
+  }
+}

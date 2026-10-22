@@ -10,25 +10,22 @@ import (
 	"strings"
 
 	"github.com/MrGuato/pisentry/internal/event"
+	"github.com/MrGuato/pisentry/internal/rules"
 	"github.com/MrGuato/pisentry/internal/state"
 )
-
-// Binaries that give an instant root shell when setuid (see GTFOBins).
-var gtfoSUID = []string{
-	"bash", "sh", "dash", "zsh", "ash", "ksh", "busybox", "python", "python3", "perl", "ruby",
-	"php", "lua", "node", "find", "vim", "vi", "nano", "less", "more", "awk", "gawk", "nmap",
-	"env", "tar", "zip", "cp", "mv", "tee", "dd", "socat", "nc", "ncat", "gdb", "strace",
-	"docker", "systemctl", "journalctl", "openssl", "wget", "curl", "rsync", "git", "make",
-}
 
 // newSUIDSeverity rates a setuid/setgid file that was not in the baseline.
 // Only root-owned setuid files grant root. Any user can chmod u+s their own
 // file, so those stay Medium to keep alerts meaningful.
 func newSUIDSeverity(path string, ownerUID int) (event.Severity, string) {
+	return newSUIDSeverityWithList(path, ownerUID, rules.Default().Catalog().GTFOSUID)
+}
+
+func newSUIDSeverityWithList(path string, ownerUID int, gtfo []string) (event.Severity, string) {
 	if ownerUID != 0 {
 		return event.Medium, "setuid/setgid file owned by a non-root user"
 	}
-	if contains(gtfoSUID, filepath.Base(path)) {
+	if contains(gtfo, filepath.Base(path)) {
 		return event.Critical, "root setuid shell/interpreter or GTFOBins binary"
 	}
 	for _, d := range []string{"/tmp/", "/var/tmp/", "/dev/shm/", "/home/", "/root/"} {
@@ -134,7 +131,7 @@ func (s *SUID) Scan() error {
 		case !existed:
 			summary = fmt.Sprintf("New %s binary %s", bit, p)
 			var reason string
-			sev, reason = newSUIDSeverity(p, sig.UID)
+			sev, reason = newSUIDSeverityWithList(p, sig.UID, s.d.rules().Catalog().GTFOSUID)
 			if reason != "" {
 				fields["reason"] = reason
 			}

@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    jon : TTY=pts/0 ; PWD=/home/jon ; USER=root ; COMMAND=/usr/sbin/adduser --disabled-password --gecos '' backup",
+  "user": {
+    "name": "jon"
+  },
+  "process": {
+    "cmdline": "/usr/sbin/adduser --disabled-password --gecos '' backup"
+  }
+}

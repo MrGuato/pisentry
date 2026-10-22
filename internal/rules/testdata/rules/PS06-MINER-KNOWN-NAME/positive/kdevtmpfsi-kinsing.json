@@ -1,0 +1,11 @@
+{
+  "source": "process",
+  "process": {
+    "pid": 31337,
+    "ppid": 1,
+    "comm": "kdevtmpfsi",
+    "exe": "/tmp/kdevtmpfsi",
+    "cmdline": "/tmp/kdevtmpfsi",
+    "uid": 33
+  }
+}

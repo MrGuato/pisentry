@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    pi : TTY=pts/0 ; PWD=/home/pi ; USER=root ; COMMAND=/usr/bin/socat TCP-LISTEN:8080,fork TCP:127.0.0.1:80",
+  "user": {
+    "name": "pi"
+  },
+  "process": {
+    "cmdline": "/usr/bin/socat TCP-LISTEN:8080,fork TCP:127.0.0.1:80"
+  }
+}

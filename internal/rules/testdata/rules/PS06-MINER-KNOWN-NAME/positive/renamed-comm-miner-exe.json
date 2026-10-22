@@ -1,0 +1,11 @@
+{
+  "source": "process",
+  "process": {
+    "pid": 5150,
+    "ppid": 1,
+    "comm": "systemd-helper",
+    "exe": "/var/tmp/.cache/xmrig-6.21",
+    "cmdline": "systemd-helper -B",
+    "uid": 0
+  }
+}

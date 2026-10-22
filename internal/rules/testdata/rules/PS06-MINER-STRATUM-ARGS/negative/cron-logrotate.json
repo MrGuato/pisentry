@@ -1,0 +1,11 @@
+{
+  "source": "process",
+  "process": {
+    "pid": 7002,
+    "ppid": 1,
+    "comm": "logrotate",
+    "exe": "/usr/sbin/logrotate",
+    "cmdline": "/usr/sbin/logrotate /etc/logrotate.conf",
+    "uid": 0
+  }
+}

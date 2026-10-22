@@ -20,69 +20,15 @@ import (
 	"github.com/MrGuato/pisentry/internal/engine"
 	"github.com/MrGuato/pisentry/internal/event"
 	"github.com/MrGuato/pisentry/internal/procfs"
+	"github.com/MrGuato/pisentry/internal/rules"
 	"github.com/MrGuato/pisentry/internal/state"
 )
 
-// DefaultWatches is the FIM watch list. Order matters: the first matching
-// spec decides a path's category and severity, so specific entries come first.
+// DefaultWatches returns the FIM watch list from the default rule bundle.
+// Order matters: the first matching spec decides a path's category and severity.
 func DefaultWatches() []config.WatchSpec {
-	w := func(p string, c event.Category, s event.Severity, rec bool) config.WatchSpec {
-		return config.WatchSpec{Pattern: p, Category: c, Severity: s, Recursive: rec}
-	}
-	C, H, M, L := event.Critical, event.High, event.Medium, event.Low
-	return []config.WatchSpec{
-		// PS10 critical files
-		w("/etc/ld.so.preload", event.FileTamper, C, false),
-		w("/etc/ssh/sshd_config", event.FileTamper, H, false),
-		w("/etc/ssh/sshd_config.d", event.FileTamper, H, false),
-		w("/etc/pam.d", event.FileTamper, H, false),
-		w("/etc/ld.so.conf", event.FileTamper, M, false),
-		w("/etc/ld.so.conf.d", event.FileTamper, M, false),
-		w("/etc/passwd", event.FileTamper, M, false),
-		w("/etc/shadow", event.FileTamper, M, false),
-		w("/etc/group", event.FileTamper, M, false),
-		w("/etc/gshadow", event.FileTamper, L, false),
-		w("/etc/nsswitch.conf", event.FileTamper, M, false),
-		w("/etc/hosts", event.FileTamper, L, false),
-		// PS04 privilege escalation
-		w("/etc/sudoers", event.PrivEsc, H, false),
-		w("/etc/sudoers.d", event.PrivEsc, H, false),
-		// PS05 persistence
-		w("/root/.ssh/authorized_keys", event.Persistence, H, false),
-		w("/root/.ssh/authorized_keys2", event.Persistence, H, false),
-		w("/home/*/.ssh/authorized_keys", event.Persistence, H, false),
-		w("/home/*/.ssh/authorized_keys2", event.Persistence, H, false),
-		w("/etc/crontab", event.Persistence, H, false),
-		w("/etc/cron.d", event.Persistence, H, false),
-		w("/var/spool/cron/crontabs", event.Persistence, H, false),
-		w("/var/spool/cron", event.Persistence, H, false),
-		w("/etc/rc.local", event.Persistence, H, false),
-		w("/root/.config/systemd/user", event.Persistence, H, true),
-		w("/home/*/.config/systemd/user", event.Persistence, H, true),
-		w("/etc/cron.hourly", event.Persistence, M, false),
-		w("/etc/cron.daily", event.Persistence, M, false),
-		w("/etc/cron.weekly", event.Persistence, M, false),
-		w("/etc/cron.monthly", event.Persistence, M, false),
-		w("/etc/systemd/system", event.Persistence, M, true),
-		w("/etc/init.d", event.Persistence, M, false),
-		w("/etc/udev/rules.d", event.Persistence, M, false),
-		w("/etc/xdg/autostart", event.Persistence, M, false),
-		w("/etc/update-motd.d", event.Persistence, M, false),
-		w("/etc/profile", event.Persistence, M, false),
-		w("/etc/profile.d", event.Persistence, M, false),
-		w("/etc/bash.bashrc", event.Persistence, M, false),
-		w("/etc/environment", event.Persistence, M, false),
-		w("/root/.bashrc", event.Persistence, M, false),
-		w("/root/.profile", event.Persistence, M, false),
-		w("/home/*/.bashrc", event.Persistence, M, false),
-		w("/home/*/.profile", event.Persistence, M, false),
-		w("/home/*/.bash_profile", event.Persistence, M, false),
-	}
+	return append([]config.WatchSpec(nil), rules.Default().Catalog().FIMWatches...)
 }
-
-var pkgManagers = []string{"apt", "apt-get", "dpkg", "unattended-upgr", "dnf", "yum", "rpm", "packagekitd", "snapd"}
-
-var privGroups = []string{"root", "sudo", "wheel", "admin", "adm", "docker", "lxd", "disk", "shadow"}
 
 // FIM covers PS10 critical files, PS05 persistence locations and sudoers (PS04).
 type FIM struct {
@@ -91,7 +37,11 @@ type FIM struct {
 }
 
 func NewFIM(d Deps) *FIM {
-	return &FIM{d: d, specs: append(DefaultWatches(), d.Cfg.FIM.ExtraWatch...)}
+	base := d.rules().Catalog().FIMWatches
+	if len(base) == 0 {
+		base = DefaultWatches()
+	}
+	return &FIM{d: d, specs: append(append([]config.WatchSpec(nil), base...), d.Cfg.FIM.ExtraWatch...)}
 }
 
 func (f *FIM) Run(ctx context.Context) {
@@ -279,7 +229,8 @@ func (f *FIM) Scan() error {
 			continue
 		}
 		if !changed {
-			pm = procfs.AnyComm(f.d.Cfg.ProcRoot, pkgManagers...)
+			pms := f.d.rules().Catalog().PkgManagers
+			pm = procfs.AnyComm(f.d.Cfg.ProcRoot, pms...)
 			changed = true
 		}
 		f.report(p, change, old, ne, hasNew, pm)
@@ -412,6 +363,7 @@ func (f *FIM) readAccounts() (map[string]string, map[string][]string) {
 		}
 	}
 	groups := map[string][]string{}
+	privGroups := f.d.rules().Catalog().PrivGroups
 	if b, err := os.ReadFile(f.d.Cfg.HostPath("/etc/group")); err == nil {
 		for _, l := range strings.Split(string(b), "\n") {
 			p := strings.Split(l, ":")

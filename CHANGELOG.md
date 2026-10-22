@@ -6,6 +6,13 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 
 ### Added
 
+- Rule Schema v1 and a strict JSON rule loader (`internal/rules`, `docs/rule-schema.md`). Rules use Sigma-aligned field names, match on Event Schema v1 fields with literal operators kept apart from RE2 regex, and take per-rule exceptions by exe, parent comm, uid, user, container image, CIDR, path and command line. Unknown fields, duplicate IDs, bad regexes, unknown categories and oversize input are rejected, never truncated
+- Built-in rules in `deploy/rules/default.json`, embedded in the binary: the eight risky-sudo patterns (`PS04-SUDO-*`) and the miner name and pool argument lists (`PS06-MINER-*`), each with an ID and MITRE techniques. Shell names, stratum ports, backdoor ports, the FIM watch list, GTFOBins SUID names, package managers and privileged groups move into the bundle's `catalog`. Events from a rule carry `rule.id`, `rule.title` and its techniques
+- `rules.dir` (default `/etc/pisentry/rules.d`, env `PISENTRY_RULES_DIR`) loads operator bundles over the built-in rules. A rule with a built-in ID replaces it, which is how exceptions are added to a built-in rule. A broken bundle is logged at startup and the agent runs on the built-in rules
+- `pisentry check [-rules PATH]` validates bundles and exits 1 naming the file, rule and field
+- Process rules outside PS06 (for example from a rule pack) are reported under their own category, and rules can match on `process.uid` and `process.parent_comm`
+- Per-rule positive and negative fixtures under `internal/rules/testdata/rules/<rule-id>/`, replayed by `go test` with no root. The test fails when a rule lacks either kind
+- `FuzzLoadBytes` fuzz target for the rule loader
 - Event Schema v1 (`docs/event-schema.json`, `docs/event-schema.md`): every event now carries `id` (UUIDv4), `schema_version` (`1`), and typed entity groups (`process`, `source`, `user`, `file`, `container`, `rule`), with OCSF and ECS mapping tables
 - Release images are signed with cosign keyless signing by digest, and `SHA256SUMS` ships with a Sigstore bundle (`SHA256SUMS.sigstore.json`, requires cosign 3.0 or later). Verification steps are in SECURITY.md
 - OpenSSF Scorecard workflow: weekly and on every push to main, results published to scorecard.dev and uploaded to code scanning. Badge in the README
@@ -16,6 +23,7 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 
 ### Changed
 
+- `proc.miner_names` now adds names on top of the `PS06-MINER-KNOWN-NAME` rule instead of replacing the built-in list, and its default is empty. `proc.stratum_ports` and `proc.shell_names` still replace the built-in lists when set
 - The SUID walk and the posture audit resume their 6 hour schedule after a restart instead of running again on every start. The last run time is saved with the baselines, so `pisentry baseline reset` still forces a fresh scan. On a Pi that kept restarting, the repeated walk filled the page and inode cache, and the agent's own reads stalled other workloads on the same SD card
 - The SUID walk runs at idle disk priority so it yields to databases sharing the disk
 - Memory cap 96 MiB -> 256 MiB in the systemd unit (`MemoryMax`) and the Kubernetes DaemonSet. The process still uses about 12 MB; both caps also count the kernel dentry/inode cache from the walks, and 96 MiB could be filled by that cache alone

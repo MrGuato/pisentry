@@ -1,0 +1,11 @@
+{
+  "source": "process",
+  "process": {
+    "pid": 9001,
+    "ppid": 1,
+    "comm": "apt-get",
+    "exe": "/usr/bin/apt-get",
+    "cmdline": "apt-get -y upgrade",
+    "uid": 0
+  }
+}
