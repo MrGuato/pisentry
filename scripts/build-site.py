@@ -38,6 +38,7 @@ BRAND_FILES = [
     "pisentry-mark-dark.svg",
     "pisentry-mark-light.svg",
     "grafana-top10.png",
+    "demo-live.gif",
     "social-preview.png",
 ]
 API = "https://api.github.com"

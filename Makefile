@@ -2,7 +2,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 IMAGE   ?= ghcr.io/mrguato/pisentry
 
-.PHONY: all test vet build dist image sim fuzz clean
+.PHONY: all test vet build dist image sim demo fuzz clean
 
 all: vet test build
 
@@ -60,3 +60,15 @@ fuzz:
 		echo "== $$fn ($$pkg, $(FUZZTIME))"; \
 		go test -run '^$$' -fuzz "^$$fn\$$" -fuzztime $(FUZZTIME) ./$$pkg || exit 1; \
 	done
+
+# README recordings. Drives a real shell in a throwaway container, records it
+# as asciicast and renders GIFs into docs/assets/. Needs Docker, tmux, ffmpeg
+# and `pip install pyte pillow`. See scripts/demo/README.md.
+DEMO_OUT ?= $(or $(TMPDIR),/tmp)/pisentry-demo
+demo:
+	CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "$(LDFLAGS)" -o $(DEMO_OUT)/pisentry ./cmd/pisentry
+	docker build -q -t pisentry-demo scripts/demo
+	scripts/demo/record.py $(DEMO_OUT)/pisentry $(DEMO_OUT)
+	scripts/demo/render.py $(DEMO_OUT)/live.cast docs/assets/demo-live.gif
+	scripts/demo/render.py $(DEMO_OUT)/audit.cast docs/assets/demo-audit.gif
+	scripts/demo/render.py $(DEMO_OUT)/reload.cast docs/assets/demo-reload.gif
