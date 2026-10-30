@@ -399,3 +399,28 @@ func TestAllDetectorsEmitSchemaV1(t *testing.T) {
 type sinkAdapter struct{ s *sink }
 
 func (a sinkAdapter) Handle(e event.Event) { a.s.Emit(e) }
+
+// Found by FuzzAuthHandle: a forged line with an out-of-range port produced
+// an event with source.port 100000, which Event Schema v1 rejects.
+func TestForgedPortOutOfRange(t *testing.T) {
+	if got := parsePort("100000"); got != 0 {
+		t.Fatalf("parsePort(100000) = %d, want 0", got)
+	}
+	if got := parsePort("65535"); got != 65535 {
+		t.Fatalf("parsePort(65535) = %d", got)
+	}
+	d, s, _ := newDeps(t, nil)
+	a := NewAuth(d)
+	for i := 0; i < 6; i++ {
+		a.Handle(ssh("Failed password for root from 203.0.113.66 port 100000 ssh2"))
+	}
+	evs := s.byCat(event.SSHBruteForce)
+	if len(evs) == 0 {
+		t.Fatal("no brute-force event")
+	}
+	for _, ev := range evs {
+		if ev.Source.Port != 0 {
+			t.Fatalf("source.port = %d, want 0 (dropped)", ev.Source.Port)
+		}
+	}
+}

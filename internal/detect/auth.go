@@ -69,7 +69,7 @@ func (a *Auth) handleSSH(l logsrc.Line) {
 	msg := l.Msg
 	now := a.d.now()
 	if m := reAccepted.FindStringSubmatch(msg); m != nil {
-		port, _ := strconv.Atoi(m[4])
+		port := parsePort(m[4])
 		a.success(now, m[1], m[2], m[3], port)
 		return
 	}
@@ -79,7 +79,7 @@ func (a *Auth) handleSSH(l logsrc.Line) {
 			a.invalidSeen[m[2]+":"+m[3]] = now
 		}
 		a.mu.Unlock()
-		port, _ := strconv.Atoi(m[3])
+		port := parsePort(m[3])
 		a.fail(now, m[2], port, m[1], true)
 		return
 	}
@@ -93,17 +93,17 @@ func (a *Auth) handleSSH(l logsrc.Line) {
 				return
 			}
 		}
-		port, _ := strconv.Atoi(m[5])
+		port := parsePort(m[5])
 		a.fail(now, m[4], port, m[3], m[2] != "")
 		return
 	}
 	if m := reClosedAuth.FindStringSubmatch(msg); m != nil {
-		port, _ := strconv.Atoi(m[3])
+		port := parsePort(m[3])
 		a.fail(now, m[2], port, m[1], false)
 		return
 	}
 	if m := reMaxAuth.FindStringSubmatch(msg); m != nil {
-		port, _ := strconv.Atoi(m[4])
+		port := parsePort(m[4])
 		a.fail(now, m[3], port, m[2], m[1] != "")
 	}
 }
@@ -124,6 +124,17 @@ func countSince(ts []time.Time, cutoff time.Time) int {
 		}
 	}
 	return n
+}
+
+// parsePort reads the port of an sshd log line. The line can be forged, so
+// anything outside 0-65535 becomes 0 (no port) instead of an event that
+// breaks the schema downstream.
+func parsePort(s string) int {
+	p, err := strconv.ParseUint(s, 10, 16)
+	if err != nil {
+		return 0
+	}
+	return int(p)
 }
 
 func validIP(ip string) bool {

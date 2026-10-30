@@ -2,7 +2,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 IMAGE   ?= ghcr.io/mrguato/pisentry
 
-.PHONY: all test vet build dist image sim clean
+.PHONY: all test vet build dist image sim fuzz clean
 
 all: vet test build
 
@@ -39,3 +39,24 @@ sim:
 	docker run --rm -v "$(CURDIR)":/src -w /src golang:1.27-alpine \
 		sh -c 'CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o pisentry ./cmd/pisentry'
 	scripts/sim-container/sim.sh ./pisentry
+
+# Native Go fuzzing of every parser that reads attacker input (#32). One
+# target at a time, FUZZTIME each: 30s on pull requests, 10m in the weekly
+# workflow. A crasher lands in <pkg>/testdata/fuzz/<target>/; commit it, it
+# becomes a regression test that plain `go test` replays.
+FUZZTIME ?= 30s
+FUZZ_TARGETS := \
+	internal/logsrc:FuzzParseSyslog \
+	internal/logsrc:FuzzReadJournal \
+	internal/procfs:FuzzParseStat \
+	internal/procfs:FuzzParseNet \
+	internal/engine:FuzzTruncate \
+	internal/detect:FuzzAuthHandle \
+	internal/detect:FuzzPortScanHandle \
+	internal/rules:FuzzLoadBytes
+fuzz:
+	@for t in $(FUZZ_TARGETS); do \
+		pkg=$${t%%:*}; fn=$${t##*:}; \
+		echo "== $$fn ($$pkg, $(FUZZTIME))"; \
+		go test -run '^$$' -fuzz "^$$fn\$$" -fuzztime $(FUZZTIME) ./$$pkg || exit 1; \
+	done
