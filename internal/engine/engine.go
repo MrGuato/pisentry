@@ -45,6 +45,8 @@ func New(cfg *config.Config, host string, store *state.Store, m *metrics.Set) *E
 		}
 		m.Suppressed.Add(0, string(ci.ID))
 	}
+	// PS00 (agent operational, e.g. a rejected rule reload) is only ever High.
+	m.Events.Add(0, string(event.Internal), event.Lookup(event.Internal).Name, event.High.String())
 	return e
 }
 

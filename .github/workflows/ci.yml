@@ -59,3 +59,32 @@ jobs:
           check-latest: true
           cache: false
       - run: go test ./...
+
+  # The alert rules are part of the product: an alert that never fires is
+  # worse than none. promtool checks syntax and runs the rule unit tests;
+  # kubeconform checks every manifest, the PrometheusRule against its CRD
+  # schema (kubectl --dry-run=client cannot, it fails without the CRD).
+  alert-rules:
+    runs-on: ubuntu-latest
+    env:
+      PROMETHEUS_IMAGE: prom/prometheus:v3.7.3@sha256:49214755b6153f90a597adcbff0252cc61069f8ab69ce8411285cd4a560e8038
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: promtool check rules
+        run: docker run --rm --entrypoint promtool -v "$PWD/deploy/prometheus:/r:ro" -w /r "$PROMETHEUS_IMAGE" check rules pisentry-rules.yaml
+      - name: promtool test rules
+        run: docker run --rm --entrypoint promtool -v "$PWD/deploy/prometheus:/r:ro" -w /r "$PROMETHEUS_IMAGE" test rules pisentry-rules.test.yaml
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: false
+      - name: kubeconform
+        run: >-
+          go run github.com/yannh/kubeconform/cmd/kubeconform@v0.8.0
+          -strict -summary
+          -ignore-filename-pattern 'kustomization.yaml'
+          -ignore-filename-pattern '\.example$'
+          -schema-location default
+          -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+          deploy/kubernetes/
