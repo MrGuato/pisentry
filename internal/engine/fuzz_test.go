@@ -11,9 +11,9 @@ import (
 // controls, no DEL, no bidi overrides or isolates, and never longer than the
 // cap plus the "..." marker (Event Schema v1 limits are cap+3 for this).
 func FuzzTruncate(f *testing.F) {
-	f.Add("evil\x1b[2J\x1b]0;pwned\x07‮exe.txt\x9b31m\xff", 100)
+	f.Add("evil\x1b[2J\x1b]0;pwned\x07\u202eexe.txt\x9b31m\xff", 100)
 	f.Add("héllo wörld", 2)
-	f.Add("⁦isolate⁩‎‏", 4)
+	f.Add("\u2066isolate\u2069\u200e\u200f", 4)
 	f.Add("\xc2\x9b\xe2\x80\xae", 1)
 	f.Add(strings.Repeat("界", 200), 400)
 	f.Add("", 0)

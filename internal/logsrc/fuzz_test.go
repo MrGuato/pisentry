@@ -20,7 +20,7 @@ var syslogSeeds = []string{
 	"2026-10-15T10:00:00.123456-04:00 kubepi sshd[1234]: Invalid user admin from 203.0.113.9 port 50000",
 	"Oct  5 09:03:01 kubepi sshd-session[99]: Connection closed by authenticating user root 203.0.113.9 port 2 [preauth]",
 	"Oct 30 02:01:18 host sshd[1]:",
-	"Oct 30 02:01:18 host \x1b[2Jsshd: ‮evil",
+	"Oct 30 02:01:18 host \x1b[2Jsshd: \u202eevil",
 	"",
 }
 

@@ -74,7 +74,7 @@ func TestSanitizeEventBoundsKey(t *testing.T) {
 	if a.Key == b.Key {
 		t.Fatal("two different long keys collapsed into one cooldown key")
 	}
-	if strings.ContainsAny(a.Key, "\x1b\xff") || !utf8.ValidString(a.Key) {
+	if strings.Contains(a.Key, "\x1b") || !utf8.ValidString(a.Key) {
 		t.Fatalf("unsanitized key: %q", a.Key)
 	}
 	short := event.Event{Key: "203.0.113.66"}

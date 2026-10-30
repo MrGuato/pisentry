@@ -26,7 +26,7 @@ var authSeeds = []struct{ ident, msg string }{
 	{"sudo", "eve : TTY=pts/1 ; USER=root ; COMMAND=/usr/sbin/usermod -aG sudo eve"},
 	{"su", "(to root) pi on pts/0"},
 	{"su", "FAILED SU (to root) pi on pts/0"},
-	{"sshd", "Failed password for \x1b[2J‮root from 203.0.113.66 port 41001 ssh2"},
+	{"sshd", "Failed password for \x1b[2J\u202eroot from 203.0.113.66 port 41001 ssh2"},
 }
 
 // FuzzAuthHandle feeds attacker-written auth log lines through the auth
