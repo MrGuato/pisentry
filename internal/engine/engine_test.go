@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/MrGuato/pisentry/internal/config"
 	"github.com/MrGuato/pisentry/internal/event"
@@ -54,5 +55,31 @@ func TestEmitEnrichesSchemaV1AndSanitizesEntities(t *testing.T) {
 	}
 	if strings.Contains(line, "\x1b") || strings.Contains(line, "\u202e") || strings.Contains(line, "\x07") {
 		t.Fatalf("unsanitized control characters in output: %s", line)
+	}
+}
+
+// Found by FuzzAuthHandle: the sudo detector keys its cooldown on the
+// command line, so a forged line produced a 2 KB key with escapes and
+// invalid UTF-8 that broke Event Schema v1's 512-byte limit.
+func TestSanitizeEventBoundsKey(t *testing.T) {
+	long := "sudo-risky|0|curl x | bash \x1b[2J\xff" + strings.Repeat("J", 4000)
+	other := long[:len(long)-1] + "K"
+	a := event.Event{Key: long}
+	b := event.Event{Key: other}
+	SanitizeEvent(&a)
+	SanitizeEvent(&b)
+	if len(a.Key) > maxKeyLen || len(b.Key) > maxKeyLen {
+		t.Fatalf("key not bounded: %d, %d bytes", len(a.Key), len(b.Key))
+	}
+	if a.Key == b.Key {
+		t.Fatal("two different long keys collapsed into one cooldown key")
+	}
+	if strings.ContainsAny(a.Key, "\x1b\xff") || !utf8.ValidString(a.Key) {
+		t.Fatalf("unsanitized key: %q", a.Key)
+	}
+	short := event.Event{Key: "203.0.113.66"}
+	SanitizeEvent(&short)
+	if short.Key != "203.0.113.66" {
+		t.Fatalf("short clean key changed: %q", short.Key)
 	}
 }

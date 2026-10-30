@@ -424,3 +424,22 @@ func TestForgedPortOutOfRange(t *testing.T) {
 		}
 	}
 }
+
+// Found by FuzzPortScanHandle: in file mode a forged kernel line with a
+// non-address SRC and ports above 65535 produced a schema-invalid PS09.
+func TestPortScanIgnoresForgedFields(t *testing.T) {
+	d, s, c := newDeps(t, nil)
+	p := NewPortScan(d)
+	for i := 1; i <= 15; i++ {
+		for _, msg := range []string{
+			"SRC=00000000000000000000000 DST=192.0.2.10 PROTO=TCP DPT=" + itoa(i*10000),
+			"SRC=198.51.100.23 DST=192.0.2.10 PROTO=TCP DPT=" + itoa(65535+i),
+		} {
+			p.Handle(logsrc.Line{Kernel: true, Ident: "kernel", Msg: msg})
+		}
+		c.t = c.t.Add(time.Second)
+	}
+	if evs := s.byCat(event.PortScan); len(evs) != 0 {
+		t.Fatalf("forged lines raised %d port-scan events: %+v", len(evs), evs[0])
+	}
+}

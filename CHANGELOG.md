@@ -29,6 +29,8 @@ All notable changes to pisentry are recorded here. The format follows [Keep a Ch
 ### Fixed
 
 - A forged sshd log line with a port above 65535 produced an event with an out-of-range `source.port` that failed Event Schema v1 validation. Out-of-range ports are now dropped. Found by `FuzzAuthHandle`
+- In file mode, a forged kernel firewall line with a `SRC=` that is not an address or a `DPT=` above 65535 could raise a PS09 event that failed Event Schema v1 validation. Such lines are now ignored. Found by `FuzzPortScanHandle` after 8 minutes
+- The event `key` (the cooldown de-duplication key) was the one attacker-influenced string the sanitizer did not touch. The sudo detector keys on the command line, so a forged sudo log line produced a multi-kilobyte key with terminal escapes and invalid UTF-8, breaking Event Schema v1's 512-byte limit, and up to 5000 such keys could sit in the cooldown map. Keys are now sanitized and capped at 256 bytes, with a hash of the full key appended when cut so distinct commands still cool down separately. Found by `FuzzAuthHandle` after 10 minutes
 
 ### Changed
 
