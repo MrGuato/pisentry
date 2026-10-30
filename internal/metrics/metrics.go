@@ -168,6 +168,9 @@ type Set struct {
 	AlertsDropped    *Vec
 	LogLines         *Vec
 	BaselineFiles    *Vec
+	RulesLoaded      *Vec
+	RulesLastReload  *Vec
+	RulesReloadFails *Vec
 }
 
 func NewSet() *Set {
@@ -189,5 +192,8 @@ func NewSet() *Set {
 		AlertsDropped:    r.Counter("pisentry_alerts_dropped_total", "Webhook alerts dropped (rate limit or error).", "reason"),
 		LogLines:         r.Counter("pisentry_log_lines_total", "Log lines read.", "source"),
 		BaselineFiles:    r.Gauge("pisentry_baseline_entries", "Entries in each learned baseline.", "baseline"),
+		RulesLoaded:      r.Gauge("pisentry_rules_loaded", "Rules in the active rule set."),
+		RulesLastReload:  r.Gauge("pisentry_rules_last_reload_timestamp_seconds", "Unix time the active rule set was loaded."),
+		RulesReloadFails: r.Counter("pisentry_rules_reload_failures_total", "Rule reloads rejected; the previous rule set stayed active."),
 	}
 }

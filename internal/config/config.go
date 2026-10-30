@@ -82,6 +82,9 @@ type LogConfig struct {
 type RulesConfig struct {
 	// Dir is the directory of JSON rule bundles loaded over the built-in default.json.
 	Dir string `json:"dir"`
+	// ReloadInterval is how often Dir is checked for changes. "0s" turns the
+	// watch off; SIGHUP still reloads.
+	ReloadInterval Duration `json:"reload_interval"`
 }
 
 type SSHConfig struct {
@@ -172,7 +175,8 @@ func Defaults() Config {
 			Files:          []string{"/var/log/auth.log", "/var/log/secure", "/var/log/kern.log", "/var/log/messages"},
 		},
 		Rules: RulesConfig{
-			Dir: "/etc/pisentry/rules.d",
+			Dir:            "/etc/pisentry/rules.d",
+			ReloadInterval: D(10 * time.Second),
 		},
 		SSH: SSHConfig{
 			FailThreshold:          5,
@@ -276,6 +280,9 @@ func (c *Config) Validate() error {
 		if d.Duration < time.Second {
 			return fmt.Errorf("%s must be at least 1s", name)
 		}
+	}
+	if r := c.Rules.ReloadInterval.Duration; r != 0 && r < time.Second {
+		return fmt.Errorf("rules.reload_interval must be 0s (off) or at least 1s")
 	}
 	return nil
 }
