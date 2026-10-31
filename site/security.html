@@ -42,7 +42,7 @@
         <li><code>go.mod</code> has no require block. The dependency surface is this repository and the Go toolchain.</li>
       </ul>
       <div class="callout">
-        <p><b>Root wins.</b> An attacker who gets root can stop the agent or edit its state. The defense is to ship events off the box, to Prometheus or a webhook, and to alert on <code>absent(pisentry_up)</code> and on stale detectors.</p>
+        <p><b>Root wins.</b> An attacker who gets root can stop the agent or edit its state. The defense is to ship events off the box, to Prometheus or a webhook, and to alert on <code>absent(pisentry_up)</code> and on stale detectors. Those alert rules ship with pisentry from the next release.</p>
       </div>
 
       <h2 id="grants">What it can do on a host</h2>
@@ -88,7 +88,7 @@
         <li>The image and <code>SHA256SUMS</code> are signed with cosign in keyless mode. The signing identity is the release workflow, attested by GitHub's OIDC issuer, and every signature lands in the Sigstore transparency log. There is no long-lived key to steal. v0.1.0 predates signing; verify it by digest and provenance.</li>
         <li>Images ship SLSA provenance and an SBOM.</li>
         <li>Every GitHub Action is pinned to a commit SHA and every base image to a digest. Dependabot proposes updates and a human merges them.</li>
-        <li>CI runs govulncheck, CodeQL, staticcheck, go vet and the race detector. A toolchain vulnerability fails the build.</li>
+        <li>CI runs govulncheck, CodeQL, staticcheck, go vet and the race detector. A toolchain vulnerability fails the build. Every parser that reads attacker input has a fuzz target, run on every pull request and for longer every week.</li>
         <li><a href="https://scorecard.dev/viewer/?uri=github.com/MrGuato/pisentry">OpenSSF Scorecard</a> grades the repository in public. Current score: <b data-build="scorecard">6.4</b>.</li>
       </ul>
 

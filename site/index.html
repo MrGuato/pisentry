@@ -288,13 +288,14 @@ pisentry Top 10  |  host kubepi  |  last 24h  |  2026-10-15 14:02 EDT
         <img src="assets/brand/grafana-top10.png" alt="The pisentry Grafana dashboard showing the ranked Top 10, events over time and firing alerts" width="1600" height="1744" loading="lazy">
       </div>
       <div class="tabpanel" role="tabpanel" id="panel-json" aria-labelledby="tab-json">
-        <p>One object per line on stdout, so journald, kubectl logs and any log shipper can read it.</p>
-        <div class="code"><pre>{"time":"2026-10-15T05:14:02Z","host":"kubepi","category":"PS08",
+        <p>One object per line on stdout, so journald, kubectl logs and any log shipper can read it. Event Schema v1, with OCSF and ECS mappings.</p>
+        <div class="code"><pre>{"id":"c4f1d2e8-7a3b-4c91-8e2f-19a0b3c4d5e6","schema_version":1,
+ "time":"2026-10-15T05:14:02Z","host":"kubepi","category":"PS08",
  "category_name":"Reverse shell","severity":"critical","mitre":["T1059.004"],
  "detector":"proc",
  "summary":"Reverse shell: bash (pid 5358) has fd 0 connected to 192.0.2.2:4445",
- "fields":{"pid":"5358","ppid":"1","comm":"bash","exe":"/usr/bin/bash",
-           "remote":"192.0.2.2:4445","fd":"0","uid":"0"}}</pre></div>
+ "process":{"pid":5358,"ppid":1,"uid":0,"comm":"bash","exe":"/usr/bin/bash"},
+ "source":{"ip":"192.0.2.2","port":4445}}</pre></div>
       </div>
       <div class="tabpanel" role="tabpanel" id="panel-prom" aria-labelledby="tab-prom">
         <p>Event counters start at zero, so <code>increase()</code> sees the first event. Alert on the agent going quiet, not just on attacks.</p>
@@ -455,7 +456,7 @@ kubectl -n pisentry logs -l app.kubernetes.io/name=pisentry -f | jq 'select(.sev
       <div class="trust-item"><h3>Signed releases</h3><p>Releases after v0.1.0 sign the image and checksums keyless with cosign. The identity is the release workflow.</p></div>
       <div class="trust-item"><h3>Provenance and SBOM</h3><p>Every image ships SLSA provenance and an SBOM you can inspect with buildx.</p></div>
       <div class="trust-item"><h3>Pinned, all of it</h3><p>Actions by commit SHA, base images by digest. Dependabot proposes, a human merges.</p></div>
-      <div class="trust-item"><h3>Scanned on every push</h3><p>govulncheck, CodeQL, staticcheck and go vet. Tests run on x86 with the race detector and on native arm64.</p></div>
+      <div class="trust-item"><h3>Scanned on every push</h3><p>govulncheck, CodeQL, staticcheck and go vet. Tests run on x86 with the race detector and on native arm64, and every parser that reads attacker input is fuzzed.</p></div>
       <div class="trust-item"><h3>Scorecard <span data-build="scorecard">6.4</span></h3><p><a href="https://scorecard.dev/viewer/?uri=github.com/MrGuato/pisentry">OpenSSF Scorecard</a> grades the repo's practices in public.</p></div>
     </div>
     <p class="note"><a href="security.html">Read the security page</a> for the threat model, pod grants and how to report a bug in private.</p>
@@ -467,7 +468,7 @@ kubectl -n pisentry logs -l app.kubernetes.io/name=pisentry -f | jq 'select(.sev
     <div class="section-head">
       <p class="eyebrow">Roadmap</p>
       <h2>Where it goes next.</h2>
-      <p class="lead">Rules you can load, real-time process events, attack chains and k3s checks. Live from GitHub milestones.</p>
+      <p class="lead">Real-time process events, fileless detection, attack chains, k3s checks and opt-in response. Live from GitHub milestones.</p>
     </div>
     <!-- build:roadmap-teaser -->
     <div class="empty">The roadmap is built from GitHub milestones. <a href="https://github.com/MrGuato/pisentry/milestones">See the milestones</a>.</div>
@@ -484,11 +485,11 @@ kubectl -n pisentry logs -l app.kubernetes.io/name=pisentry -f | jq 'select(.sev
     </div>
     <div class="faq">
       <details><summary>Does it replace Falco?</summary><div><p>No. Falco watches syscalls from the container runtime. pisentry watches the host: logs, files, processes and posture. Run both where you can. On a stock Pi kernel, pisentry may be the one that runs.</p></div></details>
-      <details><summary>Will it slow down my Pi?</summary><div><p>On a 2 GB Pi 4 in k3s it uses 16 MiB of memory and 2 millicores of CPU. It is capped at 256 MiB.</p><p>One known case where it did: v0.1.0 had a 96 MiB cap and re-ran its SUID walk on every start. On a control-plane Pi with a large /home, the kernel cache from that walk filled the cap, the agent restarted in a loop, and its reads competed with k3s on the SD card. v0.1.1 raised the cap and resumes slow scans after a restart instead.</p></div></details>
+      <details><summary>Will it slow down my Pi?</summary><div><p>On a 2 GB Pi 4 in k3s it uses 16 MiB of memory and 2 millicores of CPU. It is capped at 256 MiB.</p><p>One known case where it did: v0.1.0 had a 96 MiB cap and re-ran its SUID walk on every start. On a control-plane Pi with a large /home, the kernel cache from that walk filled the cap, the agent restarted in a loop, and its reads competed with k3s on the SD card. The next release raises the cap and resumes slow scans after a restart instead. The fix is on main now.</p></div></details>
       <details><summary>Why does it run as root?</summary><div><p>It reads /etc/shadow, other users' /proc entries and the journal. The systemd unit keeps two capabilities and the pod keeps three. Everything else is taken away.</p></div></details>
       <details><summary>What if an attacker gets root?</summary><div><p>Root wins. An attacker with root can stop the agent or edit its state. Ship events off the box and alert when <code>pisentry_up</code> goes missing. That is the real defense.</p></div></details>
       <details><summary>Does it block attacks?</summary><div><p>Not today. pisentry detects and alerts. Automated response is on the roadmap, off by default and fenced by allowlists.</p></div></details>
-      <details><summary>Can I write my own rules?</summary><div><p>Thresholds, allowlists and extra watch paths are config today. A rule engine for your own patterns is the next milestone.</p></div></details>
+      <details><summary>Can I write my own rules?</summary><div><p>Yes, from the next release (on main now). Drop a JSON rule bundle in /etc/pisentry/rules.d and the running agent loads it within ten seconds, or at once on systemctl reload. A broken file is rejected and the old rules stay active. In v0.1.0, thresholds, allowlists and extra watch paths are config.</p></div></details>
       <details><summary>What does it cost?</summary><div><p>Nothing. It is MIT licensed, and it stays that way.</p></div></details>
     </div>
   </div>
