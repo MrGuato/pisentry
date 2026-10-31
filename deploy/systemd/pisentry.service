@@ -7,6 +7,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/pisentry run -config /etc/pisentry/config.json
+# Reloads rules.d without a restart. A broken bundle is rejected and the
+# previous rules stay active (pisentry_rules_reload_failures_total, PS00).
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5
 # Webhook URL/token live here, mode 0600, never in config.json.

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "rules": [
+    {
+      "id": "LOCAL-SUDO-TCPDUMP",
+      "title": "Packet capture run through sudo",
+      "description": "Sniffing on a Pi that only runs k3s is not normal here.",
+      "category": "PS04",
+      "level": "high",
+      "source": "log",
+      "mitre": ["T1040"],
+      "match": {
+        "all": [
+          { "field": "log.ident", "equals": ["sudo"] },
+          { "field": "log.msg", "contains": ["COMMAND=/usr/bin/tcpdump", "COMMAND=/usr/sbin/tcpdump"] }
+        ]
+      }
+    }
+  ]
+}

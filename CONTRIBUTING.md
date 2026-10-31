@@ -43,6 +43,22 @@ No root, or no spare host? `make sim` does the same eight categories inside a co
 
 If you add a category, add a step to both `scripts/sim-container/sim.sh` and `scripts/simulate-attacks.sh`.
 
+## Fuzzing
+
+Log lines, `/proc` fields, file names and rule files are attacker controlled and a root process parses them. Each parser has a native Go fuzz target; `make fuzz` runs them all (`FUZZTIME=10m make fuzz` for a longer pass). If you add a parser, add a target to the `FUZZ_TARGETS` list in the Makefile and the matrix in `.github/workflows/fuzz.yml`. A crasher is written to `<pkg>/testdata/fuzz/<target>/`; commit it with the fix and plain `go test` replays it from then on.
+
+## Alert rules
+
+Edit `deploy/prometheus/pisentry-rules.yaml`, copy its `groups:` into the `spec:` of `deploy/kubernetes/apps/base/pisentry/prometheusrule.yaml` indented two spaces (`go test ./internal/metrics` fails if they drift or reference a metric that does not exist), and add a case to `pisentry-rules.test.yaml`. Check with:
+
+```bash
+docker run --rm --entrypoint promtool -v "$PWD/deploy/prometheus:/r:ro" -w /r prom/prometheus:v3.7.3 test rules pisentry-rules.test.yaml
+```
+
+## README demos
+
+The GIFs in the README are real recordings made by `make demo`; see [scripts/demo/README.md](scripts/demo/README.md). Re-record them when the output they show changes.
+
 ## Commit messages
 
 Short imperative subject with an area prefix, and a body that says why:

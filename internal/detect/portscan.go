@@ -72,11 +72,20 @@ func (p *PortScan) Handle(l logsrc.Line) {
 			return
 		}
 	}
+	// In file mode any local user can write these lines, so a source that is
+	// not an address or a port outside 0-65535 is a forgery, not a scan.
+	if _, err := netip.ParseAddr(src[1]); err != nil {
+		return
+	}
+	pv, err := strconv.ParseUint(dpt[1], 10, 16)
+	if err != nil {
+		return
+	}
+	port := int(pv)
 	cfg := p.d.Cfg.PortScan
 	if inPrefixes(src[1], parsePrefixes(cfg.AllowCIDRs)) {
 		return
 	}
-	port, _ := strconv.Atoi(dpt[1])
 	now := p.d.now()
 	cutoff := now.Add(-cfg.Window.Duration)
 

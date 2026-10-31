@@ -3,6 +3,8 @@
 package engine
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"os"
@@ -45,14 +47,31 @@ func New(cfg *config.Config, host string, store *state.Store, m *metrics.Set) *E
 		}
 		m.Suppressed.Add(0, string(ci.ID))
 	}
+	// PS00 (agent operational, e.g. a rejected rule reload) is only ever High.
+	m.Events.Add(0, string(event.Internal), event.Lookup(event.Internal).Name, event.High.String())
 	return e
 }
 
 func (e *Engine) AddSink(s Sink) { e.sinks = append(e.sinks, s) }
 
+// maxKeyLen bounds the cooldown key. Keys can embed attacker text (a sudo
+// command line), so a long key keeps a clean prefix plus a hash of the whole
+// key: two different long commands still cool down separately, and forged
+// log lines cannot fill the cooldown map with 256 KiB keys.
+const maxKeyLen = 256
+
+func boundKey(k string) string {
+	if len(k) <= maxKeyLen {
+		return Truncate(k, maxKeyLen)
+	}
+	sum := sha256.Sum256([]byte(k))
+	return Truncate(k, maxKeyLen-24) + "#" + hex.EncodeToString(sum[:8])
+}
+
 // SanitizeEvent neutralizes and bounds all untrusted strings on an event in place.
 func SanitizeEvent(ev *event.Event) {
 	ev.Summary = Truncate(ev.Summary, 400)
+	ev.Key = boundKey(ev.Key)
 	for k, v := range ev.Fields {
 		ev.Fields[k] = Truncate(v, 512)
 	}

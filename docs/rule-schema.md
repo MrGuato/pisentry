@@ -92,6 +92,19 @@ pisentry check -rules /path/to/dir   # a file or directory on its own
 
 Both exit 1 on the first error and name the file, rule and field. At startup, a broken `rules.d` is logged and the agent runs on the built-in rules rather than with none.
 
+## Reloading
+
+The running agent reloads `rules.d` without a restart:
+
+- on SIGHUP (`sudo systemctl reload pisentry`, or `kill -HUP $(pidof pisentry)`), and
+- when the contents of `rules.d` change, checked every `rules.reload_interval` (default `10s`, `0s` turns the watch off).
+
+The directory is watched, not single files, and files are read through symlinks, so a Kubernetes ConfigMap update that swaps the `..data` symlink is picked up. A change has to be stable for 2 seconds before it is loaded, so copying several files is one reload.
+
+The new set is compiled and validated in the background and swapped in atomically. If it fails, the previous set stays active, `pisentry_rules_reload_failures_total` goes up, the error is logged, and a High PS00 event names the file and field (the alert `PisentryRuleReloadFailed` fires on it). On success `pisentry_rules_loaded` and `pisentry_rules_last_reload_timestamp_seconds` change.
+
+Rules and most catalog lists take effect on the next scan. `fim_watches` is read when the FIM detector starts, so a change to it needs a restart.
+
 ## Fixtures
 
 Every built-in rule has recorded inputs under `internal/rules/testdata/rules/<rule-id>/`:

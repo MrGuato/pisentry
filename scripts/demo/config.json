@@ -1,0 +1,22 @@
+{
+  "hostname": "kubepi",
+  "listen": "127.0.0.1:9817",
+  "state_dir": "/var/lib/pisentry",
+  "learning_period": "3s",
+  "cooldown": "15m",
+  "logs": {
+    "source": "file",
+    "files": ["/var/log/auth.log", "/var/log/kern.log"],
+    "ssh_require_root": false
+  },
+  "rules": {
+    "dir": "/etc/pisentry/rules.d",
+    "reload_interval": "2s"
+  },
+  "listeners": { "interval": "2s", "ignore_loopback": true },
+  "proc": { "interval": "2s", "cpu_threshold": 80 },
+  "fim": { "interval": "2s" },
+  "suid": { "interval": "6h" },
+  "audit": { "interval": "6h" },
+  "output": { "stdout": true }
+}

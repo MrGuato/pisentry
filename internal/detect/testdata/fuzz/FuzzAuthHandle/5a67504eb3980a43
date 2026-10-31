@@ -1,0 +1,4 @@
+go test fuzz v1
+string("sshd")
+string("Failed 0000000000 for  from 100.0.100.0 port 100000")
+byte('\b')
