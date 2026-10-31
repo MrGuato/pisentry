@@ -72,14 +72,7 @@ I run a k3s cluster on Raspberry Pis and one x86 box, all declared in Git. Falco
 
 pisentry is the host-side agent I wanted: one binary, one JSON config, a Top 10 that tells you what matters this week, and output you can graph and alert on. It runs next to Falco, not instead of it.
 
-| | Falco | pisentry |
-|---|---|---|
-| Signal | Syscalls via eBPF | Logs, /proc, file hashes |
-| Strength | Container runtime behavior | SSH and auth abuse, posture, FIM, host persistence |
-| Needs | Privileged pod, kernel eBPF support | Three capabilities, no kernel features |
-| Footprint | 128Mi request | 24Mi request |
-
-Falco sees a syscall the moment it happens. pisentry sees the things Falco does not try to cover.
+Falco sees a syscall the moment it happens; pisentry covers the host underneath it. The [comparison](https://mrguato.github.io/pisentry/#compare) has the details.
 
 ---
 
@@ -96,7 +89,7 @@ chmod +x pisentry-linux-arm64 && sudo ./pisentry-linux-arm64 audit
 
 ![pisentry audit on a fresh Pi with password SSH, root login and the default pi account: six failing checks, the fix for each, and exit code 2](docs/assets/demo-audit.gif)
 
-Use `pisentry-linux-armv7` on 32-bit Pi OS and `pisentry-linux-amd64` on x86. To keep it running, install it as a service (next section) or deploy the DaemonSet.
+Use `pisentry-linux-armv7` on 32-bit Pi OS and `pisentry-linux-amd64` on x86. To keep it running, [install it](#install) as a service or a DaemonSet.
 
 ---
 
@@ -117,95 +110,28 @@ Use `pisentry-linux-armv7` on 32-bit Pi OS and `pisentry-linux-amd64` on x86. To
 
 Ranking is by severity-weighted score inside the window (critical 10, high 5, medium 2, low 1), then by count. Every category always shows, so the report reads as a status board even on a quiet day. Every event carries its MITRE ATT&CK technique IDs.
 
----
-
-## How it works
-
-```
- journald / auth.log / kern.log ─┐
-                                 ├─> auth detector ─────┐
-                                 └─> port-scan detector ┤
- /proc (every 15s) ──> miner + reverse-shell detector ──┤
- /proc/1/net (30s) ──> listener detector ───────────────┤
- /etc, /home, cron, systemd (60s) ──> FIM ──────────────┼─> engine ─┬─> state.json (baselines, Top 10 history)
- /usr, /tmp, /home (6h) ──> SUID walk ──────────────────┤  dedupe   ├─> /metrics  (Prometheus)
- sshd_config, shadow, sysctl (6h) ──> posture audit ────┘  sanitize ├─> stdout JSON (journald / kubectl logs)
-                                                                    └─> webhook (ntfy, Discord, Slack, generic)
-```
-
-- **Learning period.** For the first 10 minutes (15 in Kubernetes) pisentry records listeners and login sources without alerting. FIM and SUID baselines are taken on the first scan. Baselines persist in `/var/lib/pisentry/state.json`.
-- **Alert once, then adopt.** A changed file alerts once and the new hash becomes the baseline. A new listener alerts once and stays counted in `pisentry_unexpected_listeners` until it goes away or you re-baseline.
-- **Cooldown.** The same category and key will not re-fire for 15 minutes, so one brute-force campaign is one alert.
-- **Package manager awareness.** If apt/dpkg/dnf is running when a watched file changes, severity drops one level and the event says so.
-- **One choke point for untrusted strings.** Usernames, process names, paths and command lines come from the attacker. They pass through one sanitizer (control characters, terminal escapes, bidi overrides, invalid UTF-8, length) before they reach JSON, a webhook or your terminal.
+How the detectors feed the engine, and the learning period, cooldown and sanitizer behind them, are in [docs/reference.md](docs/reference.md#how-it-works).
 
 ---
 
-## Install: bare metal (systemd)
+## Install
+
+**Bare metal (systemd):**
 
 ```bash
 git clone https://github.com/MrGuato/pisentry && cd pisentry
-sudo ./deploy/install.sh                      # downloads the latest release for this CPU
-sudo ./deploy/install.sh --version v0.1.0     # or a specific release
-sudo ./deploy/install.sh --binary ./pisentry  # or a binary you built with make build
+sudo ./deploy/install.sh
 ```
 
-The installer puts the binary in `/usr/local/bin`, config in `/etc/pisentry/config.json`, secrets in `/etc/pisentry/pisentry.env` (mode 0600), and enables `pisentry.service`.
+The unit runs as root to read `/etc/shadow`, other users' `/proc` and the journal, and gives up everything else: two capabilities, a syscall filter, a read-only system and a 256 MB memory cap.
 
-The unit runs as root because it has to read `/etc/shadow`, other users' `/proc/<pid>/fd` and the journal. Everything else is taken away: a two-capability bounding set, `ProtectSystem=strict`, `NoNewPrivileges`, a `@system-service` syscall filter, `MemoryDenyWriteExecute`, and a 256 MB memory cap (the process uses about 12 MB; the rest is room for kernel file cache that is charged to the unit). Read [deploy/systemd/pisentry.service](deploy/systemd/pisentry.service) before you trust it.
-
-To enable push alerts with ntfy, set `"type": "ntfy"` under `alerts` in config.json and put this in pisentry.env:
-
-```
-PISENTRY_WEBHOOK_URL=https://ntfy.sh/a-long-random-topic-name
-```
-
-Then run `sudo systemctl restart pisentry && sudo pisentry test-alert`.
-
----
-
-## Install: Kubernetes with Flux
-
-`deploy/kubernetes/` mirrors the [pi-cluster](https://github.com/MrGuato/pi-cluster) layout:
-
-```
-deploy/kubernetes/
-├── apps/base/pisentry/      namespace, configmap, daemonset, networkpolicy, podmonitor, prometheusrule, grafana dashboard
-└── apps/staging/pisentry/   overlay + secret.yaml.example (SOPS-encrypt before committing)
-```
-
-There is no separate Flux Kustomization. pi-cluster's `apps` Kustomization points at `./apps/staging` with no root `kustomization.yaml`, so Flux already picks up every subdirectory. A second Kustomization for the same path would give the objects two owners.
-
-1. Tag a release (`git tag -s v0.1.0 && git push origin v0.1.0`). The release workflow pushes `ghcr.io/mrguato/pisentry:v0.1.0` for arm64, arm/v7 and amd64 with provenance and an SBOM. New ghcr packages start private, so set it to public once, or add an imagePullSecret.
-2. Pin the image by digest in the DaemonSet (`image: ghcr.io/mrguato/pisentry:v0.1.0@sha256:...`). This agent is root-equivalent on every node. A tag can move, a digest cannot.
-3. Copy both paths into your cluster repo and merge to `main`. The `apps` Kustomization reconciles it. Kustomize applies atomically, so check `kubectl version` first: the DaemonSet uses `appArmorProfile` (1.30+). On an older API server that field fails the whole `apps` apply.
-4. Optional alerts: copy `secret.yaml.example` to `secret.yaml`, fill it in, encrypt it with `sops --config clusters/staging/.sops.yaml --encrypt --in-place`, then uncomment it in the overlay.
+**Kubernetes with Flux:** copy `deploy/kubernetes/` into your cluster repo. You get a DaemonSet pinned by digest, a NetworkPolicy, a PodMonitor, the alert rules and the Grafana dashboard.
 
 ```bash
-kubectl -n pisentry get ds pisentry
 kubectl -n pisentry exec ds/pisentry -- pisentry report
-kubectl -n pisentry logs -l app.kubernetes.io/name=pisentry -f | jq 'select(.severity=="critical")'
 ```
 
-The Grafana dashboard ("pisentry - Top 10 attacks") is loaded by the kube-prometheus-stack sidecar. It has severity stats, the ranked Top 10 bar gauge, events over time, failing posture checks, SSH failure rate per node, detector freshness, the pisentry alerts firing right now, and the active rule count.
-
-The alert rules ship as a `PrometheusRule` next to the DaemonSet (see [Alerts](#alerts)), so the operator loads them with everything else.
-
-![The pisentry Grafana dashboard fed by the container attack simulation and a real Prometheus evaluating the shipped alert rules: four critical and five high events, the ranked Top 10, ten firing alerts and one rejected rule reload](docs/assets/grafana-top10.png)
-
-### What the pod is allowed to do, and why
-
-| Grant | Why |
-|---|---|
-| `hostPID: true` | See every host and pod process for miner and reverse-shell detection |
-| `/` mounted read-only at `/host`, recursive where supported | FIM, posture audit, SUID walk, host journalctl |
-| `CAP_DAC_READ_SEARCH` | Read /etc/shadow, journals, home directories |
-| `CAP_SYS_PTRACE` | `readlink /proc/<pid>/fd` and `/exe` for other users' processes |
-| `CAP_SYS_CHROOT` | Run the host's own journalctl so the journal format always matches |
-| AppArmor Unconfined, SELinux `spc_t` | Ubuntu's default container profile blocks ptrace reads of host processes, and SELinux blocks host file reads on RHEL |
-| `/var/lib/pisentry` hostPath, read-write | Per-node baselines survive pod restarts |
-
-It is not a privileged pod, has no service account token, and has a read-only root filesystem. Know the blast radius anyway: if the agent itself were compromised, the attacker would effectively be root on the node. Every host security agent works this way. That is the reason for the stdlib-only code, the central sanitizing of attacker-controlled strings, the digest pin, and the NetworkPolicy that limits port 9817 to the monitoring namespace.
+Installer options, push alerts, the Flux layout and every pod grant with its reason are in [docs/install.md](docs/install.md).
 
 ---
 
@@ -227,6 +153,8 @@ pisentry categories                                 print the Top 10 catalog
 
 ## Custom rules, reloaded live
 
+_On `main`, in the next release._
+
 Drop a JSON bundle in `/etc/pisentry/rules.d/` ([Rule Schema v1](docs/rule-schema.md)) and the running agent picks it up within `rules.reload_interval` (10s), or right away on `sudo systemctl reload pisentry` (SIGHUP). No restart, no lost state.
 
 The new rule set is compiled in the background and swapped in atomically, so detectors never see a half-loaded set. A broken file is rejected: the previous rules stay active, `pisentry_rules_reload_failures_total` goes up, and a PS00 event says which file and field. The agent never runs with zero rules. In Kubernetes the directory is watched, not the files, so a ConfigMap update (which swaps a `..data` symlink) is seen too.
@@ -237,64 +165,15 @@ The new rule set is compiled in the background and swapped in atomically, so det
 
 ## Outputs
 
-**Event JSON** ([Event Schema v1](docs/event-schema.json), [OCSF / ECS mapping](docs/event-schema.md)), one per line on stdout:
+One JSON event per line ([Event Schema v1](docs/event-schema.md), with OCSF and ECS mappings), Prometheus metrics on `:9817/metrics`, a small HTTP API, and webhooks for ntfy, Discord, Slack or any URL. High and Critical alerts are rate limited to 30 an hour, and Critical gets its own budget so a flood of High events cannot hide a reverse shell.
 
-```json
-{"id":"c4f1d2e8-7a3b-4c91-8e2f-19a0b3c4d5e6","schema_version":1,"time":"2026-10-15T05:14:02Z","host":"kubepi",
- "category":"PS08","category_name":"Reverse shell","severity":"critical","mitre":["T1059.004"],"detector":"proc",
- "summary":"Reverse shell: bash (pid 5358) has fd 0 connected to 192.0.2.2:4445",
- "process":{"pid":5358,"ppid":1,"start_time":98112,"uid":0,"comm":"bash","exe":"/usr/bin/bash","cmdline":"bash -i"},
- "source":{"ip":"192.0.2.2","port":4445},"user":{"uid":0},
- "fields":{"pid":"5358","ppid":"1","comm":"bash","exe":"/usr/bin/bash","remote":"192.0.2.2:4445","fd":"0","uid":"0"}}
-```
+The bundled Grafana dashboard, here fed by the attack simulation and a real Prometheus running the shipped alert rules:
 
-**Prometheus** on `:9817/metrics`:
+![The pisentry Grafana dashboard fed by the container attack simulation and a real Prometheus evaluating the shipped alert rules: four critical and five high events, the ranked Top 10, ten firing alerts and one rejected rule reload](docs/assets/grafana-top10.png)
 
-| Metric | Type | Labels | Notes |
-|---|---|---|---|
-| `pisentry_events_total` | counter | `category`, `name`, `severity` | Pre-created at 0 so `increase()` sees the first event |
-| `pisentry_category_last_event_timestamp_seconds` | gauge | `category` | |
-| `pisentry_events_suppressed_total` | counter | `category` | Dropped by the per-key cooldown |
-| `pisentry_audit_check_failing` | gauge | `check`, `category`, `severity` | 1 while a posture check fails |
-| `pisentry_unexpected_listeners` | gauge | | Listening sockets not in the baseline right now |
-| `pisentry_ssh_auth_failures_total` | counter | | |
-| `pisentry_firewall_drop_lines_total` | counter | | Kernel log lines with SRC/DPT |
-| `pisentry_detector_last_run_timestamp_seconds` | gauge | `detector` | Alert if it goes stale |
-| `pisentry_detector_errors_total` | counter | `detector` | Check this after a deploy |
-| `pisentry_alerts_sent_total` | counter | `type` | |
-| `pisentry_alerts_dropped_total` | counter | `reason` | Rate limit or delivery error |
-| `pisentry_log_lines_total` | counter | `source` | |
-| `pisentry_baseline_entries` | gauge | `baseline` | |
-| `pisentry_rules_loaded` | gauge | | Rules in the active set |
-| `pisentry_rules_last_reload_timestamp_seconds` | gauge | | When the active set was loaded |
-| `pisentry_rules_reload_failures_total` | counter | | Reloads rejected; the previous set stayed active |
-| `pisentry_up`, `pisentry_build_info` | gauge | `host` / `version`, `goarch` | |
+**Alerts** (on `main`, in the next release): ten Prometheus rules ship as a plain rules file and as a `PrometheusRule`, each with a one-line runbook. The most important one is the page the agent cannot send itself, `PisentryAgentAbsent`, because an attacker with root stops the agent first.
 
-**HTTP API:** `GET /api/top10?window=24h` and `GET /api/events?limit=100` on the same listener.
-
-**Webhooks:** ntfy (with priority mapping), Discord, Slack, or generic JSON. High and Critical by default. Alerts are rate limited to 30 per hour, and Critical alerts get their own budget so a flood of High events cannot hide a reverse shell.
-
-### Alerts
-
-The most important alert is the one the agent cannot send itself: an attacker with root stops the agent first. Prometheus alert rules ship in two forms with the same content:
-
-- [deploy/prometheus/pisentry-rules.yaml](deploy/prometheus/pisentry-rules.yaml) for a plain Prometheus (`rule_files:`), with unit tests in [pisentry-rules.test.yaml](deploy/prometheus/pisentry-rules.test.yaml)
-- [deploy/kubernetes/apps/base/pisentry/prometheusrule.yaml](deploy/kubernetes/apps/base/pisentry/prometheusrule.yaml) for the Prometheus Operator, plus a Kubernetes-only alert for a node with no running agent (needs kube-state-metrics)
-
-| Alert | Severity | Fires when |
-|---|---|---|
-| `PisentryAgentDown` | critical | A target stops answering scrapes for 5 minutes |
-| `PisentryAgentAbsent` | critical | `pisentry_up` is gone from every target for 10 minutes |
-| `PisentryNodeWithoutAgent` | critical | A Kubernetes node has had no reporting agent for 15 minutes |
-| `PisentryCriticalEvent` | critical | Any critical event in the last 5 minutes |
-| `PisentryHighEvents` | warning | Any high event in the last 15 minutes |
-| `PisentryDetectorStale` | warning | proc, listeners or fim has not run for 10 minutes |
-| `PisentryDetectorStaleSlow` | warning | The SUID walk or posture audit missed two 6-hour cycles |
-| `PisentryDetectorErrors` | warning | A detector reported errors in the last 15 minutes |
-| `PisentryAlertsDropped` | warning | Webhook alerts were rate limited or failed in the last hour |
-| `PisentryRuleReloadFailed` | warning | A rules.d change was rejected |
-
-Every alert carries a one-line `runbook` annotation. CI runs `promtool check rules`, `promtool test rules` and `kubeconform` against the CRD schema on every change.
+The full metric list, the alert table, the API and the configuration keys are in [docs/reference.md](docs/reference.md).
 
 ---
 
@@ -315,33 +194,7 @@ No root, and nothing touched on your own host? The same eight categories run ins
 make sim
 ```
 
-This builds the binary in the pinned Go image, runs the agent in a `python:3-slim` container with file-mode logs and short detector intervals, fires the same stand-ins, and writes `events.jsonl`, `report.json`, `metrics.txt` and `top10.json` to an output directory. It exits non-zero unless all eight categories fired. See [scripts/sim-container/](scripts/sim-container/).
-
----
-
-## Configuration
-
-Every key is optional. See [deploy/config.example.json](deploy/config.example.json) and [internal/config/config.go](internal/config/config.go) for all of them. Unknown keys are rejected so typos fail loudly. The ones you are most likely to change:
-
-| Key | Default | Notes |
-|---|---|---|
-| `learning_period` | `10m` | Re-learn with `pisentry baseline reset` after intentional changes |
-| `cooldown` | `15m` | Same category and key will not re-fire inside this window |
-| `ssh.fail_threshold` / `fail_window` | `5` / `5m` | |
-| `ssh.allow_cidrs` | `[]` | e.g. `["192.168.1.0/24"]` to stop "new source" alerts from your LAN |
-| `portscan.threshold` / `window` | `12` / `60s` | |
-| `listeners.allow_ports` | `[]` | |
-| `rules.dir` | `/etc/pisentry/rules.d` | Operator rule bundles over the built-in rules. Env `PISENTRY_RULES_DIR` |
-| `rules.reload_interval` | `10s` | How often rules.d is checked for changes. `0s` turns the watch off; SIGHUP still reloads |
-| `proc.allow_comm` | build tools, k3s, prometheus | Processes allowed to burn CPU |
-| `fim.extra_watch` | `[]` | Add your own paths with a category and severity |
-| `logs.source` | `auto` | `journald`, `file` or `none` |
-| `logs.ssh_require_root` | `true` | Drops journald sshd records not logged by uid 0 (anti-forgery) |
-| `alerts.type` | off | `ntfy`, `discord`, `slack`, `generic`. Also settable via `PISENTRY_ALERT_TYPE` |
-| `alerts.min_severity` / `max_per_hour` | `high` / `30` | |
-| `disable` | `[]` | Detector names: `auth`, `portscan`, `fim`, `listeners`, `proc`, `suid`, `audit` |
-
-Secrets (webhook URL and token) are read from the environment, never from config.json.
+It exits non-zero unless all eight categories fired. See [scripts/sim-container/](scripts/sim-container/).
 
 ---
 
@@ -351,7 +204,7 @@ Read this section before the feature list. It is the part that tells you whether
 
 - **Polling, not syscalls.** A process that lives less than one poll interval (15s) can be missed. Falco covers that gap.
 - **Port scans need firewall logging.** pisentry reads kernel drop logs. It does not capture packets. Turn on `ufw logging on`, or `firewall-cmd --set-log-denied=all` on RHEL, or add an nftables `log` rule. Otherwise PS09 is blind.
-- **Root wins.** An attacker who gets root can stop the agent or edit its state. Alert on `absent(pisentry_up)` and on stale `pisentry_detector_last_run_timestamp_seconds`, and ship events off the box (Prometheus, webhooks). That is the real defense.
+- **Root wins.** An attacker who gets root can stop the agent or edit its state. Ship events off the box and alert when the agent goes quiet; the shipped alert rules do exactly that. That is the real defense.
 - **A host that is already compromised learns a bad baseline.** Install on a clean host, or review the first FIM and listener baselines by hand.
 - **Log forgery in file mode.** Any local user can write `sshd`-tagged lines with `logger`. With journald, `ssh_require_root` filters those out. Classic syslog files have no sender identity.
 - **High UDP ports.** Unconnected UDP sockets on ports 32768 and up are skipped to avoid DNS-client noise, so a UDP backdoor on a high port will not show as a new listener.
@@ -372,15 +225,7 @@ The detection logic is public on purpose. Thresholds are per-deployment configur
 
 ## Roadmap
 
-- k3s module: privileged pods, hostPath mounts, kubelet anonymous auth
-- Low-and-slow brute force: per-source counts over 24h, many sources against one account
-- `/dev/shm` and `memfd` execution as its own signal
-- Optional inotify for instant FIM on supported kernels
-- In-cluster admission policy that verifies the cosign signature before a pod starts. Releases are signed today, see [SECURITY.md](SECURITY.md)
-
-Linux first: arm64, armv7 and amd64 today. Other platforms are being explored, nothing is promised.
-
-The live roadmap, built from the GitHub milestones, is at [mrguato.github.io/pisentry/roadmap.html](https://mrguato.github.io/pisentry/roadmap.html).
+Real-time process events and fileless detection, persistent windows and attack-chain correlation, k3s checks, and opt-in active response. The live roadmap, built from the GitHub milestones, is at [mrguato.github.io/pisentry/roadmap.html](https://mrguato.github.io/pisentry/roadmap.html).
 
 ---
 

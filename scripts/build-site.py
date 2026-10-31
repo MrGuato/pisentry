@@ -355,6 +355,8 @@ def render_roadmap(model, log_entries, repo):
                 f'https://github.com/{esc(repo)}/releases/tag/v{esc(e["version"])}'
             code = "v" + e["version"]
         items = "".join(f"<li>{inline(x)}</li>" for x in e["items"][:8])
+        if len(e["items"]) > 8:
+            items += f'<li><a href="{link}">And {len(e["items"]) - 8} more changes and fixes</a></li>'
         out.append(
             f'<article class="mcard shipped"><div class="mcard-head"><div>'
             f'<div><span class="ms-code">{esc(code)}</span> {chip}</div><h2>{title}</h2></div>'
