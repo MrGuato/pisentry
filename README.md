@@ -27,12 +27,21 @@
 
 > _Ten categories. One binary. Zero dependencies._
 
+<p align="center">
+  <img alt="Top pane: an attacker fires eight harmless attack stand-ins. Bottom pane: the pisentry agent's JSON events, one line each through jq, flagging SSH brute force, a root login, a port scan, a cryptominer, a backdoor listener, a reverse shell and cron persistence within seconds. Then pisentry report ranks the Top 10." src="docs/assets/demo-live.gif" width="100%">
+</p>
+
+<p align="center"><sub>A real recording, not a mock-up: the top pane fires harmless stand-ins for eight attacks, the bottom pane is <code>pisentry run</code> piped through <a href="scripts/demo/stream.jq">jq</a>, and the last frame is <code>pisentry report</code>. Rebuild it with <code>make demo</code> (<a href="scripts/demo/">how</a>).</sub></p>
+
 - Standard library only. No third-party Go modules, nothing to audit but this repo and the Go toolchain
 - About 7 MB on disk, about 12 MB resident. Under 1% CPU on a 2 GB Pi
 - arm64 (Pi 4 and 5), armv7 (32-bit Pi OS), amd64
 - Runs as a hardened systemd service or as a Kubernetes DaemonSet managed by Flux
 - Raspberry Pi OS, Ubuntu, Debian and RHEL-family hosts, with journald or classic syslog files
 - Prometheus metrics, JSON events, a terminal Top 10 report, and push alerts to ntfy, Discord, Slack or any webhook
+
+<details>
+<summary>The same report as text</summary>
 
 ```
 $ sudo pisentry report
@@ -52,6 +61,8 @@ pisentry Top 10  |  host kubepi  |  last 24h  |  2026-10-15 14:02 EDT
 ```
 
 That output is from a real run against the bundled attack simulation.
+
+</details>
 
 ---
 
@@ -83,13 +94,7 @@ sha256sum --check --ignore-missing SHA256SUMS
 chmod +x pisentry-linux-arm64 && sudo ./pisentry-linux-arm64 audit
 ```
 
-```
-FAIL    high      SSH-02  SSH root login permitted       PermitRootLogin yes
-FAIL    medium    SSH-01  SSH password authentication enabled
-...
-How to fix:
-  SSH-02: Set 'PermitRootLogin no' (or prohibit-password if you need key-based root).
-```
+![pisentry audit on a fresh Pi with password SSH, root login and the default pi account: six failing checks, the fix for each, and exit code 2](docs/assets/demo-audit.gif)
 
 Use `pisentry-linux-armv7` on 32-bit Pi OS and `pisentry-linux-amd64` on x86. To keep it running, install it as a service (next section) or deploy the DaemonSet.
 
@@ -165,7 +170,7 @@ Then run `sudo systemctl restart pisentry && sudo pisentry test-alert`.
 
 ```
 deploy/kubernetes/
-├── apps/base/pisentry/      namespace, configmap, daemonset, networkpolicy, podmonitor, grafana dashboard
+├── apps/base/pisentry/      namespace, configmap, daemonset, networkpolicy, podmonitor, prometheusrule, grafana dashboard
 └── apps/staging/pisentry/   overlay + secret.yaml.example (SOPS-encrypt before committing)
 ```
 
@@ -182,9 +187,11 @@ kubectl -n pisentry exec ds/pisentry -- pisentry report
 kubectl -n pisentry logs -l app.kubernetes.io/name=pisentry -f | jq 'select(.severity=="critical")'
 ```
 
-The Grafana dashboard ("pisentry - Top 10 attacks") is loaded by the kube-prometheus-stack sidecar. It has severity stats, the ranked Top 10 bar gauge, events over time, failing posture checks, SSH failure rate per node, and detector freshness.
+The Grafana dashboard ("pisentry - Top 10 attacks") is loaded by the kube-prometheus-stack sidecar. It has severity stats, the ranked Top 10 bar gauge, events over time, failing posture checks, SSH failure rate per node, detector freshness, the pisentry alerts firing right now, and the active rule count.
 
-![The pisentry Grafana dashboard rendered from the bundled container attack simulation, host pi-sim](docs/assets/grafana-top10.png)
+The alert rules ship as a `PrometheusRule` next to the DaemonSet (see [Alerts](#alerts)), so the operator loads them with everything else.
+
+![The pisentry Grafana dashboard fed by the container attack simulation and a real Prometheus evaluating the shipped alert rules: four critical and five high events, the ranked Top 10, ten firing alerts and one rejected rule reload](docs/assets/grafana-top10.png)
 
 ### What the pod is allowed to do, and why
 
@@ -209,11 +216,22 @@ pisentry run        [-config FILE]                  run the agent
 pisentry report     [-since 24h] [-json]            ranked Top 10 from saved state
 pisentry audit      [-json]                         one-shot posture audit, exit 2 on high/critical
 pisentry baseline   reset                           re-learn baselines (the running agent picks it up)
+pisentry check      [-rules PATH]                   validate rule bundles, exit 1 naming the file, rule and field
 pisentry test-alert                                 send a test webhook
 pisentry categories                                 print the Top 10 catalog
 ```
 
 `pisentry audit` works without the agent running, which makes it handy for hardening a fresh Pi. `pisentry report -json` and `pisentry audit -json` are stable machine-readable output for evidence collection.
+
+---
+
+## Custom rules, reloaded live
+
+Drop a JSON bundle in `/etc/pisentry/rules.d/` ([Rule Schema v1](docs/rule-schema.md)) and the running agent picks it up within `rules.reload_interval` (10s), or right away on `sudo systemctl reload pisentry` (SIGHUP). No restart, no lost state.
+
+The new rule set is compiled in the background and swapped in atomically, so detectors never see a half-loaded set. A broken file is rejected: the previous rules stay active, `pisentry_rules_reload_failures_total` goes up, and a PS00 event says which file and field. The agent never runs with zero rules. In Kubernetes the directory is watched, not the files, so a ConfigMap update (which swaps a `..data` symlink) is seen too.
+
+![A local rule for packet capture through sudo is copied into rules.d and loaded on SIGHUP, fires on a matching sudo line, then a truncated file is rejected with a PS00 event while the previous 11 rules stay active](docs/assets/demo-reload.gif)
 
 ---
 
@@ -247,11 +265,36 @@ pisentry categories                                 print the Top 10 catalog
 | `pisentry_alerts_dropped_total` | counter | `reason` | Rate limit or delivery error |
 | `pisentry_log_lines_total` | counter | `source` | |
 | `pisentry_baseline_entries` | gauge | `baseline` | |
+| `pisentry_rules_loaded` | gauge | | Rules in the active set |
+| `pisentry_rules_last_reload_timestamp_seconds` | gauge | | When the active set was loaded |
+| `pisentry_rules_reload_failures_total` | counter | | Reloads rejected; the previous set stayed active |
 | `pisentry_up`, `pisentry_build_info` | gauge | `host` / `version`, `goarch` | |
 
 **HTTP API:** `GET /api/top10?window=24h` and `GET /api/events?limit=100` on the same listener.
 
 **Webhooks:** ntfy (with priority mapping), Discord, Slack, or generic JSON. High and Critical by default. Alerts are rate limited to 30 per hour, and Critical alerts get their own budget so a flood of High events cannot hide a reverse shell.
+
+### Alerts
+
+The most important alert is the one the agent cannot send itself: an attacker with root stops the agent first. Prometheus alert rules ship in two forms with the same content:
+
+- [deploy/prometheus/pisentry-rules.yaml](deploy/prometheus/pisentry-rules.yaml) for a plain Prometheus (`rule_files:`), with unit tests in [pisentry-rules.test.yaml](deploy/prometheus/pisentry-rules.test.yaml)
+- [deploy/kubernetes/apps/base/pisentry/prometheusrule.yaml](deploy/kubernetes/apps/base/pisentry/prometheusrule.yaml) for the Prometheus Operator, plus a Kubernetes-only alert for a node with no running agent (needs kube-state-metrics)
+
+| Alert | Severity | Fires when |
+|---|---|---|
+| `PisentryAgentDown` | critical | A target stops answering scrapes for 5 minutes |
+| `PisentryAgentAbsent` | critical | `pisentry_up` is gone from every target for 10 minutes |
+| `PisentryNodeWithoutAgent` | critical | A Kubernetes node has had no reporting agent for 15 minutes |
+| `PisentryCriticalEvent` | critical | Any critical event in the last 5 minutes |
+| `PisentryHighEvents` | warning | Any high event in the last 15 minutes |
+| `PisentryDetectorStale` | warning | proc, listeners or fim has not run for 10 minutes |
+| `PisentryDetectorStaleSlow` | warning | The SUID walk or posture audit missed two 6-hour cycles |
+| `PisentryDetectorErrors` | warning | A detector reported errors in the last 15 minutes |
+| `PisentryAlertsDropped` | warning | Webhook alerts were rate limited or failed in the last hour |
+| `PisentryRuleReloadFailed` | warning | A rules.d change was rejected |
+
+Every alert carries a one-line `runbook` annotation. CI runs `promtool check rules`, `promtool test rules` and `kubeconform` against the CRD schema on every change.
 
 ---
 
@@ -288,6 +331,8 @@ Every key is optional. See [deploy/config.example.json](deploy/config.example.js
 | `ssh.allow_cidrs` | `[]` | e.g. `["192.168.1.0/24"]` to stop "new source" alerts from your LAN |
 | `portscan.threshold` / `window` | `12` / `60s` | |
 | `listeners.allow_ports` | `[]` | |
+| `rules.dir` | `/etc/pisentry/rules.d` | Operator rule bundles over the built-in rules. Env `PISENTRY_RULES_DIR` |
+| `rules.reload_interval` | `10s` | How often rules.d is checked for changes. `0s` turns the watch off; SIGHUP still reloads |
 | `proc.allow_comm` | build tools, k3s, prometheus | Processes allowed to burn CPU |
 | `fim.extra_watch` | `[]` | Add your own paths with a category and severity |
 | `logs.source` | `auto` | `journald`, `file` or `none` |
@@ -331,7 +376,6 @@ The detection logic is public on purpose. Thresholds are per-deployment configur
 - Low-and-slow brute force: per-source counts over 24h, many sources against one account
 - `/dev/shm` and `memfd` execution as its own signal
 - Optional inotify for instant FIM on supported kernels
-- PrometheusRule alerts shipped with the manifests
 - In-cluster admission policy that verifies the cosign signature before a pod starts. Releases are signed today, see [SECURITY.md](SECURITY.md)
 
 Linux first: arm64, armv7 and amd64 today. Other platforms are being explored, nothing is promised.
@@ -343,6 +387,8 @@ The live roadmap, built from the GitHub milestones, is at [mrguato.github.io/pis
 ## Contributing
 
 Bug reports, false positives and detection gaps are the most useful issues. See [CONTRIBUTING.md](CONTRIBUTING.md). The one hard rule: no third-party Go modules.
+
+Every parser that reads attacker input (syslog lines, journal JSON, `/proc` stat and net tables, the auth and port-scan matchers, the sanitizer, the rule loader) has a native Go fuzz target. `make fuzz` runs each for 30 seconds; CI does the same on every pull request and runs 10 minutes per target weekly.
 
 ## License
 

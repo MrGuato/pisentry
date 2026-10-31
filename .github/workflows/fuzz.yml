@@ -1,0 +1,56 @@
+name: fuzz
+
+# Native Go fuzzing of every parser that reads attacker input: log lines,
+# journal JSON, /proc stat and net tables, the string sanitizer, the auth and
+# port-scan matchers and the rule loader. 30 seconds per target on every pull
+# request, 10 minutes per target every week. A crasher is uploaded as an
+# artifact; commit it under testdata/fuzz/ and `go test` replays it forever.
+on:
+  pull_request:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: Time per target
+        default: 10m
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - internal/logsrc:FuzzParseSyslog
+          - internal/logsrc:FuzzReadJournal
+          - internal/procfs:FuzzParseStat
+          - internal/procfs:FuzzParseNet
+          - internal/engine:FuzzTruncate
+          - internal/detect:FuzzAuthHandle
+          - internal/detect:FuzzPortScanHandle
+          - internal/rules:FuzzLoadBytes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: false
+      - name: fuzz
+        env:
+          TARGET: ${{ matrix.target }}
+          FUZZTIME: ${{ github.event_name == 'pull_request' && '30s' || inputs.fuzztime || '10m' }}
+        run: |
+          pkg="${TARGET%%:*}"; fn="${TARGET##*:}"
+          go test -run '^$' -fuzz "^${fn}\$" -fuzztime "$FUZZTIME" "./${pkg}"
+      - name: upload crasher
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: crasher-${{ strategy.job-index }}
+          path: internal/*/testdata/fuzz/
+          retention-days: 30

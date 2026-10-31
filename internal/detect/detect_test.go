@@ -399,3 +399,47 @@ func TestAllDetectorsEmitSchemaV1(t *testing.T) {
 type sinkAdapter struct{ s *sink }
 
 func (a sinkAdapter) Handle(e event.Event) { a.s.Emit(e) }
+
+// Found by FuzzAuthHandle: a forged line with an out-of-range port produced
+// an event with source.port 100000, which Event Schema v1 rejects.
+func TestForgedPortOutOfRange(t *testing.T) {
+	if got := parsePort("100000"); got != 0 {
+		t.Fatalf("parsePort(100000) = %d, want 0", got)
+	}
+	if got := parsePort("65535"); got != 65535 {
+		t.Fatalf("parsePort(65535) = %d", got)
+	}
+	d, s, _ := newDeps(t, nil)
+	a := NewAuth(d)
+	for i := 0; i < 6; i++ {
+		a.Handle(ssh("Failed password for root from 203.0.113.66 port 100000 ssh2"))
+	}
+	evs := s.byCat(event.SSHBruteForce)
+	if len(evs) == 0 {
+		t.Fatal("no brute-force event")
+	}
+	for _, ev := range evs {
+		if ev.Source.Port != 0 {
+			t.Fatalf("source.port = %d, want 0 (dropped)", ev.Source.Port)
+		}
+	}
+}
+
+// Found by FuzzPortScanHandle: in file mode a forged kernel line with a
+// non-address SRC and ports above 65535 produced a schema-invalid PS09.
+func TestPortScanIgnoresForgedFields(t *testing.T) {
+	d, s, c := newDeps(t, nil)
+	p := NewPortScan(d)
+	for i := 1; i <= 15; i++ {
+		for _, msg := range []string{
+			"SRC=00000000000000000000000 DST=192.0.2.10 PROTO=TCP DPT=" + itoa(i*10000),
+			"SRC=198.51.100.23 DST=192.0.2.10 PROTO=TCP DPT=" + itoa(65535+i),
+		} {
+			p.Handle(logsrc.Line{Kernel: true, Ident: "kernel", Msg: msg})
+		}
+		c.t = c.t.Add(time.Second)
+	}
+	if evs := s.byCat(event.PortScan); len(evs) != 0 {
+		t.Fatalf("forged lines raised %d port-scan events: %+v", len(evs), evs[0])
+	}
+}

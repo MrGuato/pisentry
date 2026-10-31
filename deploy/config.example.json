@@ -6,7 +6,8 @@
     "source": "auto"
   },
   "rules": {
-    "dir": "/etc/pisentry/rules.d"
+    "dir": "/etc/pisentry/rules.d",
+    "reload_interval": "10s"
   },
   "ssh": {
     "fail_threshold": 5,

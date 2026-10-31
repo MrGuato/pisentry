@@ -1,0 +1,95 @@
+# Unit tests for pisentry-rules.yaml:
+#   promtool test rules deploy/prometheus/pisentry-rules.test.yaml
+rule_files:
+  - pisentry-rules.yaml
+evaluation_interval: 1m
+
+tests:
+  - name: agent stops answering scrapes
+    interval: 1m
+    input_series:
+      - series: 'up{job="pisentry", instance="kubepi:9817"}'
+        values: '1 1 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: PisentryAgentDown
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: PisentryAgentDown
+        exp_alerts:
+          - exp_labels: {severity: critical, job: pisentry, instance: "kubepi:9817"}
+            exp_annotations:
+              summary: pisentry on kubepi:9817 is not answering scrapes
+              description: Prometheus cannot scrape pisentry on kubepi:9817 for 5 minutes.
+              runbook: Check `systemctl status pisentry` (or the pod) on that host; if it was stopped by hand and nobody knows why, treat the host as compromised.
+
+  - name: every agent gone
+    interval: 1m
+    input_series:
+      - series: 'pisentry_up{instance="kubepi:9817", host="kubepi"}'
+        values: '1 1 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: PisentryAgentAbsent
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations:
+              summary: No pisentry agent is reporting at all
+              description: The pisentry_up series is missing from every target for 10 minutes.
+              runbook: Check the scrape config and the PodMonitor or static target; then check whether every agent was stopped at once.
+
+  - name: a critical event pages, PS00 does not
+    interval: 1m
+    input_series:
+      - series: 'pisentry_events_total{instance="kubepi:9817", category="PS08", name="Reverse shell", severity="critical"}'
+        values: '0 0 1 1'
+      - series: 'pisentry_events_total{instance="kubepi:9817", category="PS00", name="Agent operational", severity="critical"}'
+        values: '0 0 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PisentryCriticalEvent
+        exp_alerts:
+          - exp_labels: {severity: critical, instance: "kubepi:9817", category: PS08, name: Reverse shell}
+            exp_annotations:
+              summary: 'pisentry PS08 Reverse shell: critical event on kubepi:9817'
+              description: 1 critical Reverse shell events in the last 5 minutes.
+              runbook: Run `pisentry report -since 1h` on the host and start with the top row; the event JSON in the journal has the process, source and file.
+
+  - name: fast detector stalls
+    interval: 1m
+    input_series:
+      # Last cycle at t=0 and never again.
+      - series: 'pisentry_detector_last_run_timestamp_seconds{instance="kubepi:9817", detector="proc"}'
+        values: '0x20'
+      - series: 'pisentry_detector_last_run_timestamp_seconds{instance="kubepi:9817", detector="audit"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: PisentryDetectorStale
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: PisentryDetectorStale
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "kubepi:9817", detector: proc}
+            exp_annotations:
+              summary: pisentry proc detector on kubepi:9817 has not run for 16m 0s
+              description: The proc, listeners and fim detectors run every 15 to 60 seconds. A gap over 10 minutes means the loop is stuck or the process is starved.
+              runbook: Look for errors in `journalctl -u pisentry` and for a slow disk; restart pisentry if the loop is stuck.
+      - eval_time: 16m
+        alertname: PisentryDetectorStaleSlow
+        exp_alerts: []
+
+  - name: rejected rule reload
+    interval: 1m
+    input_series:
+      - series: 'pisentry_rules_reload_failures_total{instance="kubepi:9817"}'
+        values: '0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PisentryRuleReloadFailed
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "kubepi:9817"}
+            exp_annotations:
+              summary: pisentry on kubepi:9817 rejected a rules.d change
+              description: The previous rule set is still active, so the change you pushed is not in effect.
+              runbook: Run `pisentry check` on that host to see the file, rule and field, fix it, then `systemctl reload pisentry`.

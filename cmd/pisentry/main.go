@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -149,7 +150,17 @@ func cmdRun(args []string) error {
 		log.Info("alerts enabled", "type", cfg.Alerts.Type, "min_severity", cfg.Alerts.MinSeverity.String())
 	}
 
-	d := detect.Deps{Cfg: cfg, Emit: eng, Store: store, M: m, Log: log, Rules: loadRules(cfg, log)}
+	live := rules.NewLive(cfg.Rules.Dir, loadRules(cfg, log))
+	m.RulesLoaded.Set(float64(len(live.Get().Rules())))
+	m.RulesLastReload.Set(float64(time.Now().Unix()))
+	m.RulesReloadFails.Add(0)
+	d := detect.Deps{Cfg: cfg, Emit: eng, Store: store, M: m, Log: log, RulesFn: live.Get}
+	hup := make(chan os.Signal, 1)
+	signal.Notify(hup, syscall.SIGHUP)
+	defer signal.Stop(hup)
+	go live.Watch(ctx, hup, cfg.Rules.ReloadInterval.Duration, ruleReloadDebounce, func(r rules.ReloadResult) {
+		onRulesReloaded(r, live.Dir(), eng, m, log)
+	})
 	log.Info("pisentry starting", "version", version, "host", host, "host_root", cfg.HostRoot,
 		"state", cfg.StateDir, "learning_period", cfg.LearningPeriod.Duration.String())
 
@@ -325,6 +336,35 @@ func loadRules(cfg *config.Config, log *slog.Logger) *rules.Engine {
 	}
 	log.Info("rules loaded", "rules", len(re.Rules()), "dir", cfg.Rules.Dir)
 	return re
+}
+
+// ruleReloadDebounce is how long rules.d must stay unchanged before a reload,
+// so a multi-file copy or a ConfigMap ..data swap is one reload, not several.
+const ruleReloadDebounce = 2 * time.Second
+
+// onRulesReloaded records a reload attempt. A rejected reload keeps the
+// previous rule set and raises a PS00 event, because an operator who pushed
+// an exception or a new rule needs to know it is not in effect.
+func onRulesReloaded(r rules.ReloadResult, dir string, emit event.Emitter, m *metrics.Set, log *slog.Logger) {
+	n := len(r.Engine.Rules())
+	if r.Err != nil {
+		m.RulesReloadFails.Inc()
+		log.Error("rule reload rejected; previous rules stay active", "trigger", r.Trigger, "dir", dir, "rules", n, "err", r.Err)
+		// Keyed by the error, so the same broken file alerts once per
+		// cooldown while a different mistake alerts again.
+		emit.Emit(event.Event{
+			Category: event.Internal,
+			Severity: event.High,
+			Detector: "rules",
+			Summary:  fmt.Sprintf("Rule reload rejected, %d previous rules stay active: %v", n, r.Err),
+			Key:      fmt.Sprintf("rules-reload|%x", sha256.Sum256([]byte(r.Err.Error())))[:29],
+			Fields:   map[string]string{"dir": dir, "trigger": r.Trigger, "error": r.Err.Error(), "rules_active": strconv.Itoa(n)},
+		})
+		return
+	}
+	m.RulesLoaded.Set(float64(n))
+	m.RulesLastReload.Set(float64(time.Now().Unix()))
+	log.Info("rules reloaded", "trigger", r.Trigger, "dir", dir, "rules", n)
 }
 
 // cmdCheck validates rule bundles and exits non-zero on the first error,

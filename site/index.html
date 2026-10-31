@@ -273,14 +273,19 @@ pisentry Top 10  |  host kubepi  |  last 24h  |  2026-10-15 14:02 EDT
     </div>
     <div class="tabs" data-tabs>
       <div class="tablist" role="tablist" aria-label="Outputs">
-        <button type="button" role="tab" id="tab-grafana" aria-controls="panel-grafana" aria-selected="true">Grafana</button>
+        <button type="button" role="tab" id="tab-live" aria-controls="panel-live" aria-selected="true">Live</button>
+        <button type="button" role="tab" id="tab-grafana" aria-controls="panel-grafana" aria-selected="false">Grafana</button>
         <button type="button" role="tab" id="tab-json" aria-controls="panel-json" aria-selected="false">JSON event</button>
         <button type="button" role="tab" id="tab-prom" aria-controls="panel-prom" aria-selected="false">Prometheus</button>
         <button type="button" role="tab" id="tab-alerts" aria-controls="panel-alerts" aria-selected="false">Push alerts</button>
       </div>
+      <div class="tabpanel" role="tabpanel" id="panel-live" aria-labelledby="tab-live">
+        <p>A real recording. Top: harmless stand-ins for eight attacks. Bottom: the agent's JSON events, one line each through jq. Last: <code>pisentry report</code>.</p>
+        <img src="assets/brand/demo-live.gif" alt="An attacker pane fires eight attack stand-ins while the pisentry event stream below flags each one within seconds, then the ranked Top 10 report" width="1098" height="872" loading="lazy">
+      </div>
       <div class="tabpanel" role="tabpanel" id="panel-grafana" aria-labelledby="tab-grafana">
-        <p>The bundled dashboard: severity totals, the ranked Top 10, events over time, failing posture checks, SSH failures per node and detector freshness.</p>
-        <img src="assets/brand/grafana-top10.png" alt="The pisentry Grafana dashboard showing the ranked Top 10 and events over time" width="1600" height="900" loading="lazy">
+        <p>The bundled dashboard: severity totals, the ranked Top 10, events over time, failing posture checks, SSH failures per node, detector freshness and the pisentry alerts firing now.</p>
+        <img src="assets/brand/grafana-top10.png" alt="The pisentry Grafana dashboard showing the ranked Top 10, events over time and firing alerts" width="1600" height="1744" loading="lazy">
       </div>
       <div class="tabpanel" role="tabpanel" id="panel-json" aria-labelledby="tab-json">
         <p>One object per line on stdout, so journald, kubectl logs and any log shipper can read it.</p>
@@ -300,10 +305,10 @@ pisentry_unexpected_listeners 2
 pisentry_detector_last_run_timestamp_seconds{detector="proc"} 1.7605e+09
 pisentry_up{host="kubepi"} 1
 
-<span class="m"># alert rules worth having</span>
-increase(pisentry_events_total{severity="critical"}[5m]) &gt; 0
+<span class="m"># shipped in deploy/prometheus/pisentry-rules.yaml (and as a PrometheusRule)</span>
+increase(pisentry_events_total{severity="critical", category!="PS00"}[5m]) &gt; 0
 absent(pisentry_up)
-time() - pisentry_detector_last_run_timestamp_seconds{detector=~"proc|listeners|fim"} &gt; 900</pre></div>
+time() - pisentry_detector_last_run_timestamp_seconds{detector=~"proc|listeners|fim"} &gt; 600</pre></div>
       </div>
       <div class="tabpanel" role="tabpanel" id="panel-alerts" aria-labelledby="tab-alerts">
         <p>High and critical events go to ntfy, Discord, Slack or any webhook. The URL and token come from the environment, never from the config file.</p>
